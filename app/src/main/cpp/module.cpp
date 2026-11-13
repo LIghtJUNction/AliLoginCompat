@@ -1,5 +1,6 @@
 #include "native_api.hpp"
 #include "policy.hpp"
+#include "trace_capture.hpp"
 extern "C" {
 #include "third_party/sha256.h"
 }
@@ -27,6 +28,7 @@ struct Profile {
 #include "profiles.inc"
 using Append = void (*)(void*, const void*, std::int32_t);
 Append original_append = nullptr;
+thread_local ali::TraceCapture business_capture;
 std::atomic<ali::Format> target_format{ali::Format::Idlefish};
 HookFunction hook_function = nullptr;
 std::atomic<bool> configured{false}, rewriting{false}, installed{false};
@@ -61,6 +63,7 @@ std::string file_hash(const char* path) {
 }
 
 void append_hook(void* destination, const void* source, std::int32_t length) {
+    business_capture.append(source, length);
     append_calls.fetch_add(1);
     if (diagnostics.load() && source && length >= 12 && length <= 64 &&
         (length == 18 || static_cast<const unsigned char*>(source)[0] == 0x11)) {
@@ -163,4 +166,14 @@ Java_io_github_lightjunction_alilogincompat_ModuleEntry_nativeRecords(JNIEnv* en
         value += "\n";
     }
     return env->NewStringUTF(value.c_str());
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_io_github_lightjunction_alilogincompat_BusinessFactorTrace_beginCapture(JNIEnv*, jclass) {
+    return installed.load() && business_capture.begin() ? JNI_TRUE : JNI_FALSE;
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_io_github_lightjunction_alilogincompat_BusinessFactorTrace_endCapture(JNIEnv* env, jclass) {
+    return env->NewStringUTF(business_capture.finish().c_str());
 }

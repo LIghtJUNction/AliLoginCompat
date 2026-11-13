@@ -91,3 +91,14 @@ Release 构建产生未签名 APK，请用自己的密钥签名。签名密钥�
 本地 purpose=8 诊断：两次返回均为 209 字符，各自增加 4 次追加操作，当前 18 字节候选块匹配/改写增量均为零。该结果只描述此独立 MiniWUA 调用，不宣称覆盖了统一签名 70102 的全部业务路径。
 
 仅 UI 对照：淘宝关闭改写与诊断后，确认 native_hooks=skipped，原生 append 函数运行时 64 字节指纹与原版一致。用户反馈购物车、搜索、详情仍失败；抓包确认购物车及两个详情接口收到新的 HTTP 419。该对照不排除其他模块、设备状态或历史服务端判定。
+
+
+### Actual business-call diagnostics (alpha.4)
+
+`trace_business` is a separate opt-in switch, off by default, for the pinned Taobao build. It observes the existing `tb.n9f.r` unified-sign call for the cart, detail, and selected already-denied APIs. It neither initiates requests nor changes arguments, return values, or exceptions. Native rewriting remains independently controlled.
+
+Each selected API is sampled at most twice per process. The capture includes only the calling thread, at most 64 append prefixes per call, and at most 256 bytes per prefix; original lengths and total append-call counts are retained. It is not limited to the older 18-byte/0x11 heuristic. Child-thread work and bytes beyond the prefix cap are not covered.
+
+Output field SHA-256 digests allow comparison to decoded HTTP headers without writing full output tokens. **Raw native prefixes may still contain private device or request data.** Records are written only to Taobao private cache (`alilogincompat-business-trace.jsonl`), replaced on the first write of each process. Do not publish them. Turn the switch off and restart Taobao after sampling. With rewriting, startup probe, and business trace all off, native hooks remain skipped.
+
+Local validation: C++ tests cover inactive capture, nested calls, thread isolation, copied-buffer stability, and record/prefix bounds; Android build, APK signature, and packaged JNI exports passed. Actual business trace correlation is pending device sampling.

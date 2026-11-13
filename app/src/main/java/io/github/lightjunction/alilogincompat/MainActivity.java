@@ -33,6 +33,8 @@ public final class MainActivity extends Activity {
         toggle(layout, preferences, "deny_bubble", R.string.deny_bubble, true);
         text(layout, R.string.deny_bubble_note, 14);
         toggle(layout, preferences, "probe", R.string.probe, false);
+        toggle(layout, preferences, "trace_business", R.string.trace_business, false);
+        text(layout, R.string.trace_business_note, 14);
         text(layout, R.string.restart_note, 16);
         text(layout, R.string.probe_note, 14);
     }

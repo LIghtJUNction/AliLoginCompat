@@ -32,16 +32,21 @@ public final class ModuleEntry implements IXposedHookLoadPackage, IXposedHookZyg
                     ? prefs.getBoolean("rewrite_taobao", false)
                     : prefs.getBoolean("rewrite", false));
             boolean probe = configured && prefs.getBoolean("probe", false);
+            boolean trace = configured && load.packageName.equals("com.taobao.taobao") && prefs.getBoolean("trace_business", false);
             if (load.packageName.equals("com.taobao.taobao") && prefs.getBoolean("deny_bubble", true)) {
                 try { DenyPageBubble.install(load.classLoader, modulePath, prefs.getLong("deny_bubble_epoch", 0L)); }
                 catch (Throwable unavailable) { XposedBridge.log("AliLoginCompat: deny bubble hook unavailable: " + unavailable.getClass().getName()); }
             }
-            if (!rewrite && !probe) {
+            if (!rewrite && !probe && !trace) {
                 XposedBridge.log("AliLoginCompat: loaded package=" + load.packageName + " mode=ui-only native_hooks=skipped configured=" + configured + " probe=false");
                 return;
             }
             System.loadLibrary("alilogincompat");
             configureNative(rewrite, load.packageName, probe);
+            if (trace) {
+                try { BusinessFactorTrace.install(load.classLoader); }
+                catch (Throwable unavailable) { XposedBridge.log("AliLoginCompat: business trace hook unavailable: " + unavailable.getClass().getName()); }
+            }
             XposedBridge.log("AliLoginCompat: loaded package=" + load.packageName + " mode=" + (rewrite ? "rewrite" : "observe") + " configured=" + configured + " probe=" + probe);
             installProbe(load.classLoader, rewrite, probe);
         } catch (Throwable error) {
