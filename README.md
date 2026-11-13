@@ -1,10 +1,21 @@
 # AliLoginCompat（实验版）
 
-一个用于淘宝、闲鱼的 LSPosed / Vector 模块：在匹配版本的安全库组装 WUA 时，尝试改写一段候选状态数据。
+一个 LSPosed / Vector 模块：将淘宝明确拒绝访问的全屏页面收起为可关闭的小悬浮球，并提供匹配版本安全库的候选 WUA 状态改写实验。
 
 **当前是兼容性实验，尚未证明能够解决自动退登。** 这七个字节的完整语义仍未知，全部置零不等于已获得正常设备的状态。服务器仍可能拒绝请求。模块保留客户端退登逻辑，不修改账号、设备标识或服务器凭证。
 
-## 做了什么
+## 淘宝拒绝页悬浮球
+
+默认开启，仅匹配 `https://bixi.alicdn.com/punish/…?action=deny`。其他验证页走原流程。真机确认的当前路径为 `FCDuplexFilter → FCComponent → StrategyCenter → ContainerActivity`。模块在页面启动入口收起全屏页面，通过原 SDK 本地广播回传与关闭页面相同的 CANCEL 结果。旧 MTOP 入口另保留原子去重和超时失败处理。业务请求仍可能失败，收起提示不会恢复被服务器拒绝的业务。
+
+- 小球使用淘宝自己的附属窗口，不需要系统悬浮窗权限，不抢焦点，窗口外的触摸继续交给原界面。
+- 拖动圆点移动位置，点“×”后持续隐藏，重启淘宝后仍隐藏；设置中关闭再打开悬浮球可恢复；切到其他应用时移除。
+- 在模块设置中关闭“将淘宝拒绝页收起为小悬浮球”，重启淘宝后可恢复原页面。
+- Java 字段或方法不匹配时保留原流程，不伪造验证结果。
+
+真机已确认悬浮球显示、首页保持可见、附属窗口具有 NOT_FOCUSABLE / NOT_TOUCH_MODAL 标志。收到关闭失效反馈后，已修复重复创建窗口打断触摸的问题，并保存关闭状态；该修复的用户复测进行中。
+
+## WUA 实验做了什么
 
 1. 仅在 `com.taobao.taobao`、`com.taobao.idlefish` 的主进程加载。
 2. 使用 [LSPosed 官方 Native Hook API](https://github.com/LSPosed/LSPosed/wiki/Native-Hook)，等待目标安全库加载。
@@ -34,16 +45,16 @@
 ## 使用
 
 1. 安装 APK，在框架中启用模块，只勾选淘宝和闲鱼；模块设置应用自身可加入作用域以使用框架配置服务。
-2. 打开 AliLoginCompat，设置“改写候选状态字节”。关闭该选项可观察原始追加行为。
+2. 打开 AliLoginCompat，分别设置拒绝页悬浮球和候选状态改写。两应用改写开关和悬浮球独立。淘宝改写默认关闭。关闭某应用改写且关闭诊断后，该应用完全跳过原生钩子。
 3. 结束并重新打开目标应用，再手动登录。
 4. 验证登录后刷新个人页、访问需要登录的业务，并保持一段时间。看到头像不代表服务器会话有效。
 5. 停用模块并结束目标进程可移除钩子；模块不会修改目标 APK 或清除其数据。
 
-如果配置服务未生效，目标进程使用观察模式。配置只在进程启动时读取，修改后需要重新打开目标应用。
+如果配置服务未生效，目标进程跳过原生改写。配置只在进程启动时读取，修改后需要重新打开目标应用。
 
 ### 可选的本地诊断
 
-设置中的诊断开关默认关闭。启用后，目标应用启动时会在后台调用一次现有 `SecurityGuardManagerWraper.getWUA()`，不调用登录接口。诊断还会记录追加调用计数，以及最多 32 个短候选缓冲区的原始字节。样本保存于目标应用私有缓存 `alilogincompat-probe.json`，用于在自有设备上核对改写计数及报文格式。
+设置中的诊断开关默认关闭。启用后，目标应用启动时会在后台调用一次现有 `SecurityGuardManagerWraper.getWUA()`。淘宝还调用两次现有 `getSecurityBodyDataEx(..., purpose=8, appEnv)` 以核对 MiniWUA 路径与缓存；不调用登录接口。诊断还会记录追加调用计数，以及最多 32 个短候选缓冲区的原始字节。样本保存于目标应用私有缓存 `alilogincompat-probe.json`，用于在自有设备上核对改写计数及报文格式。
 
 该文件可能包含设备指纹材料；不要上传到 Issue。诊断结束后关闭开关并删除该文件。公开反馈只需要应用 / 安全库版本、是否匹配、计数和脱敏后的结果。
 
@@ -55,6 +66,8 @@
 ./gradlew :app:assembleRelease
 g++ -std=c++17 -Wall -Wextra -Werror tests/policy_test.cpp -o /tmp/alilogincompat-policy-test
 /tmp/alilogincompat-policy-test
+javac -d /tmp/alilogincompat-ui-tests app/src/main/java/io/github/lightjunction/alilogincompat/DenyLocationPolicy.java tests/DenyLocationPolicyTest.java
+java -cp /tmp/alilogincompat-ui-tests io.github.lightjunction.alilogincompat.DenyLocationPolicyTest
 ```
 
 Release 构建产生未签名 APK，请用自己的密钥签名。签名密钥、密码、构建产物和诊断样本均不应提交。日常验证在本地完成，本仓库不配置自动 CI。
@@ -63,6 +76,7 @@ Release 构建产生未签名 APK，请用自己的密钥签名。签名密钥�
 
 ## 状态
 
+- 拒绝页悬浮球：真机显示已确认，精确 URL 匹配测试通过；持续关闭修复待用户复测。
 - 核心改写逻辑：已实现。
 - 本地 Release 构建、APK 签名和宿主边界测试：通过。
 - Vector 真机：淘宝主进程确认原生钩子安装成功；alpha.1 的私有诊断确认追加函数执行、生成 WUA，但因淘宝结构不同未改写；alpha.2 增加独立结构匹配，真机确认 matched=1 / rewritten=1；冷启动仍出现访问被拒绝，因此这处改写不足以修复淘宝。
@@ -73,3 +87,7 @@ Release 构建产生未签名 APK，请用自己的密钥签名。签名密钥�
 ## 许可
 
 本项目采用 Apache-2.0。SHA-256 实现来自 Brad Conte 的 public-domain 项目，固定版本和来源见 [`third_party/NOTICE`](app/src/main/cpp/third_party/NOTICE)。Gradle Wrapper 来自 Gradle（Apache-2.0）。
+
+本地 purpose=8 诊断：两次返回均为 209 字符，各自增加 4 次追加操作，当前 18 字节候选块匹配/改写增量均为零。该结果只描述此独立 MiniWUA 调用，不宣称覆盖了统一签名 70102 的全部业务路径。
+
+仅 UI 对照：淘宝关闭改写与诊断后，确认 native_hooks=skipped，原生 append 函数运行时 64 字节指纹与原版一致。用户反馈购物车、搜索、详情仍失败；抓包确认购物车及两个详情接口收到新的 HTTP 419。该对照不排除其他模块、设备状态或历史服务端判定。

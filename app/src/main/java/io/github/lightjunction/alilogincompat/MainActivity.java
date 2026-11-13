@@ -11,6 +11,7 @@ import android.widget.Toast;
 public final class MainActivity extends Activity {
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        getWindow().getDecorView().setSystemUiVisibility(android.view.View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | android.view.View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
         LinearLayout layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);
         int padding = (int) (24 * getResources().getDisplayMetrics().density);
@@ -28,6 +29,9 @@ public final class MainActivity extends Activity {
             return;
         }
         toggle(layout, preferences, "rewrite", R.string.rewrite, true);
+        toggle(layout, preferences, "rewrite_taobao", R.string.rewrite_taobao, false);
+        toggle(layout, preferences, "deny_bubble", R.string.deny_bubble, true);
+        text(layout, R.string.deny_bubble_note, 14);
         toggle(layout, preferences, "probe", R.string.probe, false);
         text(layout, R.string.restart_note, 16);
         text(layout, R.string.probe_note, 14);
@@ -42,7 +46,9 @@ public final class MainActivity extends Activity {
         view.setText(title); view.setChecked(prefs.getBoolean(key, fallback));
         view.setPadding(0, 12, 0, 20);
         view.setOnCheckedChangeListener((button, checked) -> {
-            if (prefs.edit().putBoolean(key, checked).commit()) Toast.makeText(this, R.string.saved, Toast.LENGTH_SHORT).show();
+            SharedPreferences.Editor edit = prefs.edit().putBoolean(key, checked);
+            if (key.equals("deny_bubble") && checked) edit.putLong("deny_bubble_epoch", System.currentTimeMillis());
+            if (edit.commit()) Toast.makeText(this, R.string.saved, Toast.LENGTH_SHORT).show();
         });
         layout.addView(view);
     }

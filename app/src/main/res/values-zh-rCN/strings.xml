@@ -3,10 +3,17 @@
     <string name="module_description">实验性改写淘宝、闲鱼匹配版本安全库的候选 WUA 状态。尚未保证修复退登。</string>
     <string name="title">AliLoginCompat · 实验版</string>
     <string name="description">在 WUA 编码前改写七个候选状态字节，其完整含义尚未确认。模块保留客户端退登处理和设备身份，不能让服务器已失效的凭证重新有效。</string>
-    <string name="rewrite">改写候选状态字节</string>
+    <string name="rewrite">闲鱼：改写候选状态字节</string>
+    <string name="rewrite_taobao">淘宝：改写候选状态字节</string>
+    <string name="deny_bubble">将淘宝拒绝页收起为小悬浮球</string>
+    <string name="deny_bubble_note">悬浮球可拖动，仅显示在淘宝内，不抢焦点。点 × 后持续隐藏，重启淘宝也不再显示；关闭再打开此选项可恢复。请求仍按失败处理。</string>
+    <string name="deny_ball_symbol">!</string>
+    <string name="deny_ball_close">×</string>
+    <string name="deny_ball_hint">淘宝部分请求被服务器拒绝（419），已收起错误页。</string>
+    <string name="deny_ball_close_hint">关闭悬浮球并保持隐藏</string>
     <string name="probe">应用启动时保存一条私有的本地 WUA 诊断样本</string>
     <string name="restart_note">在框架中启用本模块，并勾选淘宝、闲鱼。修改设置后重启目标应用。关闭改写可观察原始行为；停用模块可移除钩子。</string>
-    <string name="probe_note">诊断只调用一次原有本地 WUA 生成方法，不调用登录接口。样本仅保存于目标应用私有缓存，日常使用请关闭。</string>
+    <string name="probe_note">诊断生成一次本地 WUA；淘宝另生成两次 MiniWUA，不调用登录接口。样本与短原生缓冲区仅保存在目标应用私有缓存，日常使用请关闭。</string>
     <string name="prefs_unavailable">框架配置服务尚未生效。请启用模块后重新打开此页面，再修改配置。</string>
     <string name="saved">已保存，重启目标应用后生效。</string>
 </resources>
