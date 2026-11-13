@@ -102,3 +102,12 @@ Each selected API is sampled at most twice per process. The capture includes onl
 Output field SHA-256 digests allow comparison to decoded HTTP headers without writing full output tokens. **Raw native prefixes may still contain private device or request data.** Records are written only to Taobao private cache (`alilogincompat-business-trace.jsonl`), replaced on the first write of each process. Do not publish them. Turn the switch off and restart Taobao after sampling. With rewriting, startup probe, and business trace all off, native hooks remain skipped.
 
 Local validation: C++ tests cover inactive capture, nested calls, thread isolation, copied-buffer stability, and record/prefix bounds; Android build, APK signature, and packaged JNI exports passed. Actual business trace correlation is pending device sampling.
+
+Offline association after collecting private data:
+
+```sh
+python3 scripts/correlate-business-trace.py --traces /private/traces.jsonl --sessions /private/sessions.json --output /private/association.json
+python3 -m unittest discover -s tests -p test_business_correlation.py
+```
+
+Association requires the same API and signature digest. Repeated requests remain multiple candidates; other differing or missing factor fields are reported. These tests verify association boundaries, not a device repair.
