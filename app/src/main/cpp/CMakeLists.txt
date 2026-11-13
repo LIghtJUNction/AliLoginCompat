@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.22)
+project(alilogincompat LANGUAGES C CXX)
+add_library(alilogincompat SHARED module.cpp third_party/sha256.c)
+target_compile_features(alilogincompat PRIVATE cxx_std_17)
+target_compile_options(alilogincompat PRIVATE -Wall -Wextra -fvisibility=hidden)
+target_link_options(alilogincompat PRIVATE "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/exports.map" "-Wl,--exclude-libs,ALL")
+target_link_libraries(alilogincompat PRIVATE log dl)

@@ -1,0 +1,11 @@
+.gradle/
+.kotlin/
+.cxx/
+**/build/
+local.properties
+.signing/
+*.jks
+*.keystore
+*.apk
+*.idsig
+artifacts/

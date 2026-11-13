@@ -1,0 +1,8 @@
+ALI_COMPAT_1 {
+    global:
+        native_init;
+        Java_io_github_lightjunction_alilogincompat_ModuleEntry_configureNative;
+        Java_io_github_lightjunction_alilogincompat_ModuleEntry_nativeCounters;
+        Java_io_github_lightjunction_alilogincompat_ModuleEntry_nativeRecords;
+    local: *;
+};
