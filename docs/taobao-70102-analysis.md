@@ -158,3 +158,7 @@ function. The callback receives the route tuple and still must dispatch it withi
 the VM. Its branch for `(7,1,2,selector=0)`, subsequent state writers, and the
 server's rejection rule remain unresolved. No risk fields were rewritten and no
 new successful business request is claimed.
+
+The subsequent [shared VM router prefix analysis](taobao-vm-router-analysis.md)
+recovers two call-structure comparisons, route arithmetic, and the first native
+import reached. The final security-factor target remains unresolved.
