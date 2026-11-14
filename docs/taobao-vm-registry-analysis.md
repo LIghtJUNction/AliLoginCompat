@@ -211,3 +211,34 @@ code was patched.
 This identifies a missing piece of offline runtime reconstruction, not the cause
 of the phone's HTTP 419 or rejected business requests. Loaded table contents,
 loader relocation behavior and actual request execution remain to be verified.
+
+## Original relocation helper and indirect resolver executed
+
+The missing table adjustment was subsequently identified in original ELF
+`0x1666fc`. For this relocation type it decodes:
+
+```text
+kind         = (word >> 9) & 15
+patch_offset = word >> 13
+kind == 1: qword(code_base + patch_offset) += code_base
+```
+
+All 27 records in the bridge's tail-7 stream have kind 1. Executing the unchanged
+ARM64 helper updates all 27 slots exactly as above, including offset `0x4280`:
+`0x24dc` becomes `code_base + 0x24dc`. Original caller `0x169c48` obtains the stream
+and count from parsed metadata and supplies the same tested bank/flag arguments
+`(0, 0, 1)`. This establishes the adjustment for this stream; other relocation
+types and loader paths are not covered by that result.
+
+After replaying the caller's table read, the **original** indirect resolver
+`0x1618dc`, module lookup `0x161200`, address conversion and context-switch helpers
+reach bridge entry `0x24dc`. The original SDK's mapped entry seed is 77; it was
+not patched for this execution. The namespace chain and TLS remain synthetic,
+and the two earlier static import selections remain modeled.
+
+Five caller records and five records in the indirect target execute before a
+read from an unavailable synthetic input address stops the run. No bytes were
+invented at that address and no security function was forced to succeed. The
+remaining reconstruction gap concerns inputs and other initialized data, not
+this now-verified table relocation. This does not diagnose the phone's rejection
+or establish the target's execution on a real failed request.
