@@ -95,6 +95,8 @@ Release 构建产生未签名 APK，请用自己的密钥签名。签名密钥�
 
 ### Actual business-call diagnostics (alpha.4)
 
+The [verified 70102 wrapper analysis](docs/taobao-70102-analysis.md) distinguishes local argument/output errors, the identified fallback, form encoding, and server rejection. It also clarifies Ghidra addresses versus runtime ELF offsets.
+
 Alpha.6 also observes at most 64 existing `doCommandNative` calls for commands 20102/70102/70103. It records command nesting, thread, Java stack, append positions and output digests in a separate private `alilogincompat-command-trace.jsonl` file. The bridge is resolved from the actual SDK proxy/router loader; global class-loader methods are not hooked. Arguments and results remain unchanged; raw command arguments and tokens are not saved. Disable business tracing and restart Taobao after sampling, and remove both diagnostic files when their verified local copies are retained.
 
 `trace_business` is a separate opt-in switch, off by default, for the pinned Taobao build. It observes the existing `tb.n9f.r` unified-sign call for the cart, detail, and selected already-denied APIs. It neither initiates requests nor changes arguments, return values, or exceptions. Native rewriting remains independently controlled.
