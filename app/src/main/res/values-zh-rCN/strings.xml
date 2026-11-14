@@ -17,5 +17,5 @@
     <string name="prefs_unavailable">框架配置服务尚未生效。请启用模块后重新打开此页面，再修改配置。</string>
     <string name="saved">已保存，重启目标应用后生效。</string>
     <string name="trace_business">观测淘宝业务安全参数生成</string>
-    <string name="trace_business_note">默认关闭。每个指定接口最多记录两次已有调用，原生片段仅保存到淘宝私有缓存。不发起请求、不修改返回值，仅覆盖调用线程；日常使用请关闭。</string>
+    <string name="trace_business_note">默认关闭。每个指定接口最多记录八次已有调用，原生片段仅保存到淘宝私有缓存。不发起请求、不修改返回值，仅覆盖调用线程；日常使用请关闭。</string>
 </resources>

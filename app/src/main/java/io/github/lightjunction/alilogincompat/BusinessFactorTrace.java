@@ -35,7 +35,7 @@ final class BusinessFactorTrace {
 
     private static synchronized boolean reserve(String api) {
         int count = counts.getOrDefault(api, 0);
-        if (count >= 2) return false;
+        if (count >= 8) return false;
         counts.put(api, count + 1);
         return true;
     }

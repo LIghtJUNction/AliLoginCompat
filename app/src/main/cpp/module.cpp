@@ -34,6 +34,7 @@ HookFunction hook_function = nullptr;
 std::atomic<bool> configured{false}, rewriting{false}, installed{false};
 std::atomic<std::uint64_t> matched{0}, rewritten{0}, append_calls{0};
 std::atomic<bool> diagnostics{false};
+std::atomic<std::uintptr_t> library_base{0}, library_end{0};
 std::mutex records_mutex;
 std::vector<std::vector<unsigned char>> records;
 std::mutex install_mutex;
@@ -63,7 +64,13 @@ std::string file_hash(const char* path) {
 }
 
 void append_hook(void* destination, const void* source, std::int32_t length) {
-    business_capture.append(source, length);
+    if (business_capture.active()) {
+        const auto caller = reinterpret_cast<std::uintptr_t>(
+            __builtin_extract_return_addr(__builtin_return_address(0)));
+        const auto base = library_base.load(std::memory_order_relaxed);
+        const auto end = library_end.load(std::memory_order_relaxed);
+        business_capture.append(source, length, caller >= base && caller < end ? caller - base : 0);
+    }
     append_calls.fetch_add(1);
     if (diagnostics.load() && source && length >= 12 && length <= 64 &&
         (length == 18 || static_cast<const unsigned char*>(source)[0] == 0x11)) {
@@ -110,6 +117,13 @@ int inspect_library(dl_phdr_info* info, std::size_t, void*) {
             __android_log_print(ANDROID_LOG_WARN, TAG, "profile instruction validation failed; library retained unchanged");
             return 1;
         }
+        std::uintptr_t end = info->dlpi_addr;
+        for (std::size_t i = 0; i < info->dlpi_phnum; ++i) {
+            const auto& segment = info->dlpi_phdr[i];
+            if (segment.p_type == PT_LOAD) end = std::max<std::uintptr_t>(end, info->dlpi_addr + segment.p_vaddr + segment.p_memsz);
+        }
+        library_base.store(info->dlpi_addr, std::memory_order_relaxed);
+        library_end.store(end, std::memory_order_relaxed);
         int status = hook_function(target, reinterpret_cast<void*>(append_hook), reinterpret_cast<void**>(&original_append));
         if (status == 0 && original_append) {
             installed.store(true);
