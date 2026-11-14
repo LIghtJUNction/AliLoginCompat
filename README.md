@@ -101,7 +101,7 @@ Each selected API is sampled at most twice per process. The capture includes onl
 
 Output field SHA-256 digests allow comparison to decoded HTTP headers without writing full output tokens. **Raw native prefixes may still contain private device or request data.** Records are written only to Taobao private cache (`alilogincompat-business-trace.jsonl`), replaced on the first write of each process. Do not publish them. Turn the switch off and restart Taobao after sampling. With rewriting, startup probe, and business trace all off, native hooks remain skipped.
 
-Local validation: C++ tests cover inactive capture, nested calls, thread isolation, copied-buffer stability, and record/prefix bounds; Android build, APK signature, and packaged JNI exports passed. Actual business trace correlation is pending device sampling.
+Local validation: C++ tests cover inactive capture, nested calls, thread isolation, copied-buffer stability, and record/prefix bounds; Android build, APK signature, and packaged JNI exports passed. Device sampling correlated seven actual calls uniquely by API and signature, with all four recorded factor digests matching captured headers. Two recommendation calls returned SUCCESS; four detail calls and one IM call returned HTTP 419. Cart/search coverage remains incomplete. These observations do not establish a server risk rule or a repair.
 
 Offline association after collecting private data:
 
@@ -111,3 +111,5 @@ python3 -m unittest discover -s tests -p test_business_correlation.py
 ```
 
 Association requires the same API and signature digest. Repeated requests remain multiple candidates; other differing or missing factor fields are reported. These tests verify association boundaries, not a device repair.
+
+The first five correlated MiniWUA headers also decoded to exactly the native envelope bytes captured in the same calls. Captured prefixes do not cover every append call; absence of the legacy 18-byte pattern in those prefixes does not prove absence elsewhere. Device diagnostics were disabled after sampling and the verified private sample copy was removed from the phone.
