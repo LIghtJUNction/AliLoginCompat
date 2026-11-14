@@ -84,3 +84,38 @@ The next discriminating observation is the actual registered target for
 absence from the recovered registration list is insufficient to choose between
 those paths. This analysis has not identified the environment-state writer or
 provided a verified cart fix.
+
+## Read-only device routing snapshot (2026-11-14)
+
+Two matching snapshots from the live Taobao process, with the mapped library's
+full SHA-256 checked against the saved APK library, establish the following
+routing state. This is a routing-table observation, not an execution trace of a
+new cart request.
+
+| Route | Snapshot result |
+| --- | --- |
+| `(7,1,2,selector=1)` | Registered native target `0x0d002c`, the expected outer wrapper |
+| `(7,1,2,selector=0)` | No registered native entry |
+| `(2,6,1,selector=0)` | No registered native entry |
+| Missing-entry callback | Executable target `0x1b4dc0` |
+
+All offsets in this section are ELF offsets. Given this table state, the
+router's missing-entry branch selects that callback for the internal factor
+route. This does not exclude later table updates.
+
+The callback's first 16 live bytes match the original library. Its stub branches
+to `0x1b0dc0`, which resolves a two-pointer trampoline table entry at displacement
+`0x3fd0`. The live entry points to `0x1b0db0`; that stub enters `0x1b0c50`, whose
+argument-marshalling call is at `0x1b05c4`. The associated closure entry is
+`0x160300`.
+
+The saved closure context has execution-kind one at offset `0x1c`. In the
+recovered `0x160300` implementation, that value selects the function pointer at
+`owner + 0x58`, passing the closure's code pointer and marshalled arguments.
+The actual owner function pointer and bytecode-to-module match remain unread.
+The next read was interrupted by loss of the ADB connection; no new request
+execution or successful cart result was obtained.
+
+The router's missing-entry callback is distinct from the identified factor
+fallback at `0x110158`. Selecting a VM-backed route is not evidence of failed
+security-factor generation or abnormal device status.
