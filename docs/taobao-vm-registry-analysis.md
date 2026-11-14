@@ -116,3 +116,24 @@ missing-entry errors above cannot be cited as the phone's failure cause. The
 handler's actual arguments, execution on a failing request, environment-field
 writers and server rejection condition remain unresolved. No Taobao fix is
 claimed.
+
+## Registered handler: isolated prefix
+
+A later offline prefix run supplies a synthetic input block whose first pointer
+references another zeroed synthetic object. It does not substitute a security
+function result. Original handlers establish these limited observations:
+
+- A zero initial R8 branches at VM `0x122cc` to `0x12b04`, which executes a return
+  opcode. The synthetic caller continuation is absent; normal completion is not
+  established.
+- The two-level synthetic input reaches local helper `0xa730` and, after 29 VM
+  instructions, call site `0xa780`. Execution stops before native resolver
+  `0x161474` for import 2.
+- Import metadata identifies that unresolved import by ID
+  `b4413bf45b4651909a72331b0a32bdc5`, uniquely matching declared provider module
+  `977966b0ece28f4eee6216434b6175ea`, export 187, VM offset `0x24274`.
+
+The provider has not been executed in this test. The cross-module argument ABI,
+real request inputs, resulting security fields and server decision remain
+unverified. A nearby `us_sdt` string held in a register is not sufficient to name
+a risk field or identify an upload operation.
