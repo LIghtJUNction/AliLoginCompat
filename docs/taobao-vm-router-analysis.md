@@ -79,3 +79,8 @@ The next unresolved step is the lookup after the read-lock call, then the
 function that actually produces the security factors. This analysis has not
 identified which device signal causes rejection, nor fixed search, cart or
 product details. Idlefish's separate SDK has not been validated by this prefix.
+
+The subsequent [VM registry lookup analysis](taobao-vm-registry-analysis.md)
+recovers the three key comparisons and missing-entry errors using explicitly
+synthetic containers and synchronization models. Actual registry values remain
+unread.
