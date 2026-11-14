@@ -125,6 +125,10 @@ Association requires the same API and signature digest. Repeated requests remain
 The first five correlated MiniWUA headers also decoded to exactly the native envelope bytes captured in the same calls. Captured prefixes do not cover every append call; absence of the legacy 18-byte pattern in those prefixes does not prove absence elsewhere. Device diagnostics were disabled after sampling and the verified private sample copy was removed from the phone.
 
 
+### Original VM record conversion
+
+`scripts/expand-vm-records.py` executes the saved SG 6.8.260901 converter offline. Its shared-router output matches all 270,272 captured runtime bytes. Fourteen Taobao format `0x10003` images convert successfully; `0x10005` and other SDK fingerprints are rejected. This is record conversion, not proof of risk-handler behavior or a fix. See the [validation scope and usage](docs/taobao-vm-record-conversion.md).
+
 ### Verified offline MiniWUA container decoder
 
 `scripts/decode-miniwua.py` implements the public container algorithm described by [byte_archaeologist](https://iosre.com/t/26281), independently checked against seven captured Android SDK 6.8.260901 business samples: CRC, component boundaries, padding, and exact re-encoding all passed. Android header constants differ from the published iOS sample. This does **not** validate the iOS bit-meaning table for Android or establish the server rejection rule.
