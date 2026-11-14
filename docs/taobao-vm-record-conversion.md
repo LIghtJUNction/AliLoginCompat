@@ -88,3 +88,30 @@ not native ELF offsets, and do not establish any environment-state bit meaning.
 This tooling removes one dependency on live instruction-record capture. Actual
 registry contents, execution state, risk-field writers and the server's rejection
 condition still require further evidence. No Taobao fix is claimed.
+
+## Isolated risk-string blocks: local branches only
+
+Executing the original handlers from the candidate function entry `0x16938`
+reaches common helper `0x1a7ac`, then stops on runtime state not present in the
+static image. This is a limitation of the reconstructed context, not evidence of
+an abnormal phone environment.
+
+An isolated block starting at VM `0x16944` establishes this narrower branch:
+
+| Synthetic input at block entry | Observed path |
+| --- | --- |
+| R8 = 0 | `0x16948` branches to `0x1697c`, returning without loading the key |
+| R8 = a nonzero synthetic pointer | `0x16950` loads `adb_enabled` into R9; `0x1695c` calls VM `0xf0a0` with R10 = 0 |
+
+The second path subsequently stops on a missing runtime object. This checks
+whether the **preceding result is nonzero**, not the value of `adb_enabled`.
+Neither input is captured phone state, and no Android setting query result or
+security result was substituted. A return opcode in the zero-input block is
+not proof that the whole function completed in its normal caller context.
+
+Starting separately at the `llc_miniwua_risk_update` string block `0x9928` reaches
+helper `0x3e0` and stops before native binding 94. Static binding metadata names
+`snprintf`; its observed format argument is `track_error|%s|%d`. This identifies
+a diagnostic-formatting path near the string reference. It does not establish
+the upload routine, execution on the phone, any environment bit, or the server's
+rejection rule.
