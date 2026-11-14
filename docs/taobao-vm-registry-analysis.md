@@ -242,3 +242,35 @@ invented at that address and no security function was forced to succeed. The
 remaining reconstruction gap concerns inputs and other initialized data, not
 this now-verified table relocation. This does not diagnose the phone's rejection
 or establish the target's execution on a real failed request.
+
+## Live loaded globals and remaining replay gap
+
+A later read-only capture from fresh Taobao PID 15458 walked three module nodes
+without truncation. Both target modules' complete raw code matched their APK
+images. Repeated reads then established:
+
+| Slot | Runtime observation |
+| --- | --- |
+| Bridge code `+0x4280` | Equals the live bridge code base plus `0x24dc` |
+| Provider code `+0x31c60` | Contains a stable runtime pointer instead of the static serialized value |
+
+Thus the table adjustment is also observed on the phone. The provider's static
+qword was not evidence of an abnormal live pointer. Original loader instructions
+at `0x16a500` were separately executed through their `memset` call setup; the
+calculated clear interval covers that static global location. Constructors and
+other initialization are still needed to reconstruct its runtime object.
+
+A narrowly bounded sample saved 16 bytes at the live global object and 32 bytes
+at its referenced payload, privately. Its first 32-bit value matches a literal
+used by bridge VM code `0x2c`; that is not a demonstrated risk bit. A partial
+offline replay, checked against the raw-code hash and capture PID, reproduces
+the first global load using those actual bytes. Request arguments and other
+runtime state remain synthetic or absent.
+
+The next access reads a separate, adjacent global at provider code `+0x31c68`.
+It is not a read of the first object's header. ADB disconnected before this
+adjacent slot was captured, so its static bytes were not replaced by an invented
+pointer or a successful result. This replay remains incomplete and does not
+establish execution of a failed business request, uploaded risk fields or the
+server's rejection rule. Raw objects and device/account material are not
+published.
