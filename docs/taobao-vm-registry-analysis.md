@@ -137,3 +137,42 @@ The provider has not been executed in this test. The cross-module argument ABI,
 real request inputs, resulting security fields and server decision remain
 unverified. A nearby `us_sdt` string held in a register is not sufficient to name
 a risk field or identify an upload operation.
+
+## Conditional cross-module continuation
+
+A further offline test models the two **static module lookups** by their unique
+APK import/export matches. It does not run the real resolver or substitute a
+security result. Original ARM64 helpers perform the module changes and address
+conversion, and original VM handlers execute the following path:
+
+```text
+5981... entry 0x122c0
+  -> import 2 -> 9779... entry 0x24274
+  -> local helpers 0x24014 and 0x2f3b4
+  -> import 0 -> 475f... entry 0x2eb0
+  -> return to 9779... 0x2f3c4
+  -> indirect-call opcode 22 at 0x2f3dc [stop before resolver]
+```
+
+The first provider executes 88 VM records before its unresolved import. With the
+second modeled lookup, the bridge executes three records and returns a table
+address; five more records execute in the caller before the next unknown native
+call. No risk check or server response is modeled as successful.
+
+Native helpers `0x15c1c4`/`0x1748fc` change frame `+0x240` to the new module and
+save the previous module at `+0xf8`. Parameter slots R8–R13 remain unchanged;
+internal frame/register bookkeeping is allowed to change. Helpers
+`0x15c1f8`/`0x1a4c60` convert the raw entry address to an expanded record address.
+A high-address test produces `0x70000909c0`, and the original opcode-17 continuation
+preserves the full pointer in X21. This is not a C ABI call that repacks six
+arguments.
+
+The bridge returns a pointer at its code base plus `0x4228`. The caller reads the
+`+0x58` slot before reaching native resolver `0x1618dc`; execution stops there.
+Its X2 argument is `0x24dc`, which is **not an import index or a demonstrated risk
+value**. Runtime target resolution and loader adjustments remain unverified;
+the static value was not patched into a presumed valid pointer.
+
+These tests use synthetic request objects and modeled module selection. They do
+not establish actual execution of a failed phone request, a security result, an
+upload field, or the server's rejection condition.
