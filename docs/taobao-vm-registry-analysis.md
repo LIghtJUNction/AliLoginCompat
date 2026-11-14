@@ -176,3 +176,38 @@ the static value was not patched into a presumed valid pointer.
 These tests use synthetic request objects and modeled module selection. They do
 not establish actual execution of a failed phone request, a security result, an
 upload field, or the server's rejection condition.
+
+## Indirect-target resolution: address membership
+
+Conditional decompilation of original ELF `0x1618dc` with its observed profile's
+entry constant 77 shows that frame modes 0/2 use namespace module lookup via
+`0x1624fc`; mode 4 follows a different path. With that helper's entry constant
+158, the path finds an owning module through `0x161200`, prepares expanded code
+if required, converts the target address, and changes the module context. Missing
+module/signature paths also exist. These are local VM dispatch conditions, not
+device-risk decisions.
+
+The lookup tests the owner module, dependency lists and further candidates.
+Original helper `0x1a4cb0` performs the address-membership check. Twelve synthetic
+boundary cases executed its unchanged ARM64 instructions and confirmed:
+
+```text
+raw:      code_base + 4 <= target < code_base + 4 + 4 * code_words
+expanded: record_base   <= target < record_base + 16 * code_words
+```
+
+The static bridge-table value `0x24dc` fails membership in a high-address loaded
+module; a hypothetical `code_base + 0x24dc` falls within the bridge's raw code
+range. The corresponding converted record is a function prologue. This supports
+investigating loader relocation, but **does not prove the loader's actual table
+adjustment**. The hypothetical pointer was not inserted to continue the handler.
+
+Decompiler parameters and returns were explicitly typed as pointers for these
+exports; an imposed 32-bit C signature must not be used to infer pointer
+truncation in the original SDK. Temporary analysis substitutions were restored
+and discarded from the read-only analysis project. No original SDK or phone
+code was patched.
+
+This identifies a missing piece of offline runtime reconstruction, not the cause
+of the phone's HTTP 419 or rejected business requests. Loaded table contents,
+loader relocation behavior and actual request execution remain to be verified.
