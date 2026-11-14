@@ -24,6 +24,7 @@ public:
         return true;
     }
     bool active() const { return active_; }
+    std::size_t position() const { return calls_; }
     void append(const void* source, std::int32_t length, std::uintptr_t caller_offset = 0) {
         if (!active_) return;
         ++calls_;

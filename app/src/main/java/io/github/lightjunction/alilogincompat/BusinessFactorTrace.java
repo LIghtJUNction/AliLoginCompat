@@ -30,8 +30,11 @@ final class BusinessFactorTrace {
         return thread;
     });
     private static boolean written;
+    private static final ThreadLocal<String> currentApi = new ThreadLocal<>();
     private static native boolean beginCapture();
     private static native String endCapture();
+    static native long capturePosition();
+    static String currentApi() { return currentApi.get(); }
 
     private static synchronized boolean reserve(String api) {
         int count = counts.getOrDefault(api, 0);
@@ -44,6 +47,10 @@ final class BusinessFactorTrace {
     }
 
     static void install(ClassLoader loader) throws Exception {
+        try { SecurityCommandTrace.install(loader); }
+        catch (Throwable error) {
+            XposedBridge.log("AliLoginCompat: command trace setup unavailable: " + error.getClass().getName());
+        }
         Class<?> signer = Class.forName("tb.n9f", false, loader);
         int installed = 0;
         for (Method method : signer.getDeclaredMethods()) {
@@ -54,12 +61,14 @@ final class BusinessFactorTrace {
             XposedBridge.hookMethod(method, new XC_MethodHook() {
                 @Override protected void beforeHookedMethod(MethodHookParam param) {
                     try {
+                        SecurityCommandTrace.resolveFromSigner(param.thisObject);
                         if (!(param.args[0] instanceof Map)) return;
                         Object value = ((Map<?, ?>) param.args[0]).get("api");
                         if (!(value instanceof String) || !TARGETS.contains(value)) return;
                         String api = (String) value;
                         if (!reserve(api)) return;
                         if (!beginCapture()) { release(api); return; }
+                        currentApi.set(api);
                         param.setObjectExtra("ali_trace_api", api);
                         param.setObjectExtra("ali_trace_start", System.nanoTime());
                     } catch (Throwable error) {
@@ -89,6 +98,8 @@ final class BusinessFactorTrace {
                         writer.execute(() -> save(record));
                     } catch (Throwable error) {
                         XposedBridge.log("AliLoginCompat: business trace finish unavailable: " + error.getClass().getName());
+                    } finally {
+                        currentApi.remove();
                     }
                 }
             });

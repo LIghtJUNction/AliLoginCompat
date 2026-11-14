@@ -7,8 +7,8 @@ android {
         applicationId = "io.github.lightjunction.alilogincompat"
         minSdk = 28
         targetSdk = 36
-        versionCode = 8
-        versionName = "0.2.0-alpha.5"
+        versionCode = 9
+        versionName = "0.2.0-alpha.6"
         ndk { abiFilters += "arm64-v8a" }
         externalNativeBuild { cmake { cppFlags += "-std=c++17" } }
     }

@@ -6,5 +6,6 @@ ALI_COMPAT_1 {
         Java_io_github_lightjunction_alilogincompat_ModuleEntry_nativeRecords;
         Java_io_github_lightjunction_alilogincompat_BusinessFactorTrace_beginCapture;
         Java_io_github_lightjunction_alilogincompat_BusinessFactorTrace_endCapture;
+        Java_io_github_lightjunction_alilogincompat_BusinessFactorTrace_capturePosition;
     local: *;
 };

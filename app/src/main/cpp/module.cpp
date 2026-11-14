@@ -191,3 +191,8 @@ extern "C" JNIEXPORT jstring JNICALL
 Java_io_github_lightjunction_alilogincompat_BusinessFactorTrace_endCapture(JNIEnv* env, jclass) {
     return env->NewStringUTF(business_capture.finish().c_str());
 }
+
+extern "C" JNIEXPORT jlong JNICALL
+Java_io_github_lightjunction_alilogincompat_BusinessFactorTrace_capturePosition(JNIEnv*, jclass) {
+    return business_capture.active() ? static_cast<jlong>(business_capture.position()) : -1;
+}
