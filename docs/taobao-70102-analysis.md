@@ -112,10 +112,49 @@ argument-marshalling call is at `0x1b05c4`. The associated closure entry is
 The saved closure context has execution-kind one at offset `0x1c`. In the
 recovered `0x160300` implementation, that value selects the function pointer at
 `owner + 0x58`, passing the closure's code pointer and marshalled arguments.
-The actual owner function pointer and bytecode-to-module match remain unread.
-The next read was interrupted by loss of the ADB connection; no new request
-execution or successful cart result was obtained.
+The initial read did not capture the owner function pointer or bytecode-to-module
+match. Its next read was interrupted by loss of the ADB connection. The subsequent
+sample below closes that routing-location gap; neither sample establishes a
+successful cart result.
 
 The router's missing-entry callback is distinct from the identified factor
 fallback at `0x110158`. Selecting a VM-backed route is not evidence of failed
 security-factor generation or abnormal device status.
+
+## Matched VM callback module and entry
+
+A subsequent Taobao launch produced two matching complete routing snapshots.
+The live owner method is ELF `0x15b9b4`, agreeing with the saved object's execution
+method. Its internal execution mode is two. Following its entry handle identifies:
+
+| Item | Verified value |
+| --- | --- |
+| Saved module ID | `204f22e1f34732a873d0c9e5d8210920` |
+| Exported entry ID | `79adfb7d4443086631b29818efab6120` |
+| Entry-record index in saved metadata | 15 |
+| Offset in original module code area | `0x827c` |
+| Offset in decoded module image | `0x8744` |
+
+The 64 bytes read from the live entry match that image location exactly and occur
+only once in the saved image. Its export metadata independently agrees with both
+offsets. These are VM module offsets, not ARM64 offsets in `libsgmainso`.
+
+The executable method subtracts the module code base from the entry handle.
+The interpreter distinguishes raw words and expanded records using module byte
+`+0x1b`. Under its established seed precondition `W25=43`, original ARM64 execution
+on eight synthetic cases verified both address calculations:
+
+- Raw words: `module.code_base + entry_offset`.
+- Expanded records: `module.record_base + ((entry_offset - 4) / 4) * 16`.
+
+The sampled module has expanded records enabled. A bounded 512-byte read of the
+corresponding runtime records was saved privately. This does not establish all
+instruction boundaries or opcode meanings: records can include immediate data.
+A candidate RELA-table recovery using 25 previously saved opcode observations
+found no common anchor, so it supplies no opcode-semantic proof.
+
+This identifies the **shared router callback**, not the final MiniWUA-producing
+function. The callback receives the route tuple and still must dispatch it within
+the VM. Its branch for `(7,1,2,selector=0)`, subsequent state writers, and the
+server's rejection rule remain unresolved. No risk fields were rewritten and no
+new successful business request is claimed.
