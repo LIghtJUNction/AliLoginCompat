@@ -113,3 +113,14 @@ python3 -m unittest discover -s tests -p test_business_correlation.py
 Association requires the same API and signature digest. Repeated requests remain multiple candidates; other differing or missing factor fields are reported. These tests verify association boundaries, not a device repair.
 
 The first five correlated MiniWUA headers also decoded to exactly the native envelope bytes captured in the same calls. Captured prefixes do not cover every append call; absence of the legacy 18-byte pattern in those prefixes does not prove absence elsewhere. Device diagnostics were disabled after sampling and the verified private sample copy was removed from the phone.
+
+
+### Verified offline MiniWUA container decoder
+
+`scripts/decode-miniwua.py` implements the public container algorithm described by [byte_archaeologist](https://iosre.com/t/26281), independently checked against seven captured Android SDK 6.8.260901 business samples: CRC, component boundaries, padding, and exact re-encoding all passed. Android header constants differ from the published iOS sample. This does **not** validate the iOS bit-meaning table for Android or establish the server rejection rule.
+
+```sh
+python3 scripts/decode-miniwua.py --input /private/token.txt --key-file /private/des-material.bin --output /private/decoded.json
+```
+
+The key file must contain exactly eight raw bytes. Decoded device data goes only into the explicitly named new private file, created with mode 0600; existing files are not overwritten. Standard output contains only validation and length metadata. Do not publish decoded records. Actual-sample validation plus tampered/wrong-key/truncated-input rejection was performed locally.
