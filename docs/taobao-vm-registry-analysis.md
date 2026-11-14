@@ -274,3 +274,41 @@ pointer or a successful result. This replay remains incomplete and does not
 establish execution of a failed business request, uploaded risk fields or the
 server's rejection rule. Raw objects and device/account material are not
 published.
+
+## Adjacent-slot branch and completed data capture
+
+Original opcode 672 at VM `0x24034` compares the adjacent slot value with zero.
+Two explicitly hypothetical cases confirm the local paths: zero goes through
+`0x2403c` to helper `0x2f2b4`; nonzero goes through `0x2405c` to helper `0x2f3b4`.
+Both stop before import 0. These cases are not captured device state or risk
+results. A separate null third-argument case reaches a return opcode with VM R8
+set to 2000; its caller continuation remains synthetic and incomplete.
+
+The missing live adjacent slot was subsequently captured from the same PID 15458,
+with stable repeated reads. Two code-verified modules' initialized data sections
+were also saved privately: 1,328 and 16,274 bytes, each identical on a second read.
+Using those bytes moves the bounded offline execution beyond the previous static
+input failure. Request arguments and two module-selection steps remain modeled;
+it is still not a replay of a real failed business request.
+
+The bridge then reads a native SDK callback table. Two live slots supply a null
+userdata value and native SDK target ELF `0x1aadec`. Its unchanged ARM64 body
+implements exactly:
+
+```text
+argument == NULL && word[SDK ELF 0x305a18] == 1
+```
+
+Six controlled native-instruction cases validate this condition. A later capture
+from a **different** process, PID 8819, verifies the callback bytes and finds that
+word equal to 1; with a null argument the isolated callback therefore returns 1.
+This value has not been injected into the VM, associated with a failed request,
+or identified as a risk verdict. The switch's business meaning is unresolved.
+The new process sample is kept separate from PID 15458's objects.
+
+During sampling, the host still exposed the phone's ADB USB interface while its
+NATIVE ADB backend listed no device. Restarting only the host ADB server with
+`ADB_LIBUSB=1` restored the connection. This is a verified recovery of that host
+connection instance, not an explanation for every earlier disconnect or for
+Taobao's server rejection. No phone security setting, login state or APK was
+changed by these observations.
