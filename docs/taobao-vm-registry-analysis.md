@@ -65,13 +65,54 @@ records. An earlier predecessor-node hypothesis failed and was discarded; direct
 record-key reads support the pointer-array model above. A provisional field name
 `kind` was also rejected: its observed comparison is selector qualification.
 
-## Remaining observation
+## Live registration capture
 
-The actual phone's container entries and selected object have not been captured.
-A bounded read-only walker was prepared for the known `(7,1,2,0)` profile: verify
-the entire live module code against the APK image, bound counts and mapped reads,
-then repeat the three-level lookup without calling or changing the target.
-It is not yet validated against live registry contents.
+A subsequent read-only capture from Taobao PID 7112 validated this lookup on the
+phone. The SDK fingerprint and complete raw module code matched the saved
+profile, and two full routing snapshots agreed. Both registry reads found:
 
-No finding here establishes missing registration on the phone, identifies the
-environment-state writer, fixes Taobao, or describes Idlefish's distinct SDK.
+| Level | Key | Container entries | Matching records |
+| --- | --- | --- | --- |
+| First | 6607 | 6 | 1 |
+| Second | 1 | 2 | 1 |
+| Third | 2 | 23 | 1 |
+
+The selected object contains a list with **one descriptor**. Descriptor fields
+`+0x20` and `+0x28` both point to byte-string objects containing this 32-byte ID:
+
+```text
+0bdc18ee4cf95fc88b11fd0fe155f65e
+```
+
+Static export metadata uniquely matches that ID within the Taobao images:
+
+| Field | Value |
+| --- | --- |
+| Module | `59818921a60ea372693874c6dada31e9` |
+| Export record | 2 |
+| VM code offset | `0x122c0` (74,432) |
+| Decoded image offset | 75,524 |
+
+This connects the live **registration** to an APK entry. It does not show that a
+particular failed business request invoked the entry, nor identify its risk
+result or the server rule. The same ID exists in Idlefish at a different offset;
+the Taobao offset must not be reused there.
+
+The descriptor's `+0x28` object was initially explored as another pointer list.
+Live bytes reject that interpretation: `+0` points to character data and `+8` is
+the string's **byte length**, 32, not a count of 32 callbacks. The descriptor's
+`+0x50` field was nonzero, but its pointed-to object's layout remains unresolved.
+An attempted owner/module interpretation encountered a zero pointer and stopped;
+it is not recorded as a successful module resolution.
+
+ADB disconnected during subsequent reads. No phone reboot, login, app-data clear,
+security-result rewrite or on-device native function call was performed. An
+isolated offline run of entry `0x122c0` with a synthetic zero argument structure
+stopped after seven records on a missing input object; this is not a successful
+handler execution.
+
+In this captured state the three registry levels are present, so the synthetic
+missing-entry errors above cannot be cited as the phone's failure cause. The
+handler's actual arguments, execution on a failing request, environment-field
+writers and server rejection condition remain unresolved. No Taobao fix is
+claimed.
