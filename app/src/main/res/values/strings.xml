@@ -19,4 +19,7 @@
     <string-array name="xposed_scope"><item>com.taobao.taobao</item><item>com.taobao.idlefish</item></string-array>
     <string name="trace_business">Observe Taobao business security factor generation</string>
     <string name="trace_business_note">Off by default. Saves at most eight existing calls per selected API, including private native buffer prefixes, only in Taobao cache. Does not initiate requests or change results. Captures only the calling thread. Turn off for normal use.</string>
+    <string name="env_trace">Observe Taobao environment checks (trace_env)</string>
+    <string name="env_compat">Enable Taobao environment compatibility layer (experimental)</string>
+    <string name="env_switches_note">Both environment switches are off by default and independent of candidate-byte rewriting. trace_env only logs accessed properties, paths, interfaces, and syscalls without changing return values.</string>
 </resources>

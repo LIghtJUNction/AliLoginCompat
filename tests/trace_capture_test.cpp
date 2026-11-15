@@ -39,4 +39,14 @@ int main() {
     while ((pos = result.find("source_length", pos)) != std::string::npos) { ++count; ++pos; }
     assert(count == 512);
     assert(sample[0] == 0xab && sample[1] == 0xcd);
+
+    capture.record_event("sg_open", 0x100, "/proc/self/maps", 3);
+    assert(capture.finish() == "{\"append_calls\":0,\"dropped_records\":0,\"records\":[]}");
+    assert(capture.begin());
+    capture.record_event("sg_prop", 0x200, "ro.debug\"gable", 0);
+    for (int i = 0; i < 4200; ++i) capture.record_event("sg_stat", 0x300, "/tmp/x", -1);
+    result = capture.finish();
+    assert(result.find("\"event_calls\":4201") != std::string::npos);
+    assert(result.find("\"dropped_events\":105") != std::string::npos);
+    assert(result.find("ro.debug\\\"gable") != std::string::npos);
 }

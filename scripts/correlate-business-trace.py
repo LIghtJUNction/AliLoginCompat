@@ -11,11 +11,25 @@ from pathlib import Path
 from urllib.parse import unquote_plus, urlsplit
 
 
+FACTOR_HEADERS = {
+    "x-sign", "x-mini-wua", "x-sgext", "x-umt",
+    "x-gst", "x-us", "x-pipu1", "wua",
+}
+
+
+def sanitize_ret(ret):
+    if not isinstance(ret, str) or not ret:
+        return "UNKNOWN"
+    if ret == "SUCCESS" or ret.startswith(("FAIL_SYS_", "ERR_", "FAIL_")):
+        return ret[:48]
+    return "OTHER"
+
+
 def header_digests(session):
     result = {}
     for key, value in session.get("request_headers", {}).items():
         key = key.lower()
-        if key not in {"x-sign", "x-mini-wua", "x-sgext", "x-umt"}:
+        if key not in FACTOR_HEADERS:
             continue
         if isinstance(value, list):
             if len(value) != 1:
@@ -40,6 +54,8 @@ def correlate(traces, sessions):
             index.setdefault((parts[1], sign), []).append((session, fields))
     results = []
     for number, trace in enumerate(traces):
+        if trace.get("record_type") == "mtop_response":
+            continue
         expected = trace.get("output_sha256", {})
         sign = expected.get("x-sign")
         candidates = index.get((trace["api"], sign), []) if sign else []
@@ -47,6 +63,7 @@ def correlate(traces, sessions):
         for session, actual in candidates:
             different = sorted(k for k, value in expected.items() if actual.get(k) != value)
             matches.append({"session_id": session["id"], "status": session["status"],
+                            "ret_category": sanitize_ret(session.get("ret_code")),
                             "all_recorded_fields_match": not different,
                             "different_or_missing_fields": different})
         results.append({"trace_index": number, "api": trace["api"],

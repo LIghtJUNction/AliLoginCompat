@@ -18,4 +18,7 @@
     <string name="saved">已保存，重启目标应用后生效。</string>
     <string name="trace_business">观测淘宝业务安全参数生成</string>
     <string name="trace_business_note">默认关闭。每个指定接口最多记录八次已有调用，原生片段仅保存到淘宝私有缓存。不发起请求、不修改返回值，仅覆盖调用线程；日常使用请关闭。</string>
+    <string name="env_trace">仅观测淘宝环境探测（trace_env，不改返回值）</string>
+    <string name="env_compat">启用淘宝环境兼容层（env_compat，实验性）</string>
+    <string name="env_switches_note">上述两个环境开关默认关闭，且与候选字节改写完全独立。trace_env 仅记录访问的属性、路径、网卡与系统调用，不修改任何返回值。</string>
 </resources>

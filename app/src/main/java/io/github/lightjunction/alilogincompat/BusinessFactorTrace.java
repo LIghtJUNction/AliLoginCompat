@@ -23,7 +23,12 @@ final class BusinessFactorTrace {
             "mtop.relationrecommend.newfacerecommend.recommend",
             "mtop.relationrecommend.wirelessrecommend.recommend",
             "mtop.taobao.wireless.amp2.im.conversation.newrebase");
+    private static final String[] FACTOR_KEYS = {
+            "x-sign", "x-mini-wua", "x-sgext", "x-umt",
+            "x-gst", "x-us", "x-pipu1", "wua"
+    };
     private static final Map<String, Integer> counts = new HashMap<>();
+    private static int responseCount;
     private static final ExecutorService writer = Executors.newSingleThreadExecutor(task -> {
         Thread thread = new Thread(task, "AliBusinessTraceWriter");
         thread.setDaemon(true);
@@ -42,8 +47,10 @@ final class BusinessFactorTrace {
         counts.put(api, count + 1);
         return true;
     }
-    private static synchronized void release(String api) {
-        counts.put(api, counts.get(api) - 1);
+    private static synchronized boolean reserveResponse() {
+        if (responseCount >= 128) return false;
+        responseCount++;
+        return true;
     }
 
     static void install(ClassLoader loader) throws Exception {
@@ -67,7 +74,7 @@ final class BusinessFactorTrace {
                         if (!(value instanceof String) || !TARGETS.contains(value)) return;
                         String api = (String) value;
                         if (!reserve(api)) return;
-                        if (!beginCapture()) { release(api); return; }
+                        if (!beginCapture()) return;
                         currentApi.set(api);
                         param.setObjectExtra("ali_trace_api", api);
                         param.setObjectExtra("ali_trace_start", System.nanoTime());
@@ -86,14 +93,26 @@ final class BusinessFactorTrace {
                         record.put("elapsed_nanos", System.nanoTime() - (Long) param.getObjectExtra("ali_trace_start"));
                         record.put("native", new JSONObject(nativeData));
                         JSONObject digests = new JSONObject();
-                        if (param.getResult() instanceof Map) {
-                            Map<?, ?> output = (Map<?, ?>) param.getResult();
-                            for (String key : new String[]{"x-sign", "x-mini-wua", "x-sgext", "x-umt"}) {
-                                Object value = output.get(key);
-                                if (value instanceof String) digests.put(key, sha256((String) value));
+                        JSONObject fields = new JSONObject();
+                        Map<?, ?> output = (param.getResult() instanceof Map) ? (Map<?, ?>) param.getResult() : null;
+                        for (String key : FACTOR_KEYS) {
+                            Object value = (output != null) ? output.get(key) : null;
+                            JSONObject meta = new JSONObject();
+                            if (value instanceof String) {
+                                String s = (String) value;
+                                String h = sha256(s);
+                                digests.put(key, h);
+                                meta.put("present", !s.isEmpty());
+                                meta.put("length", s.length());
+                                meta.put("sha256", h);
+                            } else {
+                                meta.put("present", false);
+                                meta.put("length", 0);
                             }
+                            fields.put(key, meta);
                         }
                         record.put("output_sha256", digests);
+                        record.put("output_fields", fields);
                         if (param.hasThrowable()) record.put("error_class", param.getThrowable().getClass().getName());
                         writer.execute(() -> save(record));
                     } catch (Throwable error) {
@@ -106,7 +125,50 @@ final class BusinessFactorTrace {
             installed++;
         }
         if (installed == 0) throw new NoSuchMethodException("business signer");
+        installResponseObserver(loader);
         XposedBridge.log("AliLoginCompat: private business trace enabled; results unchanged");
+    }
+
+    private static void installResponseObserver(ClassLoader loader) {
+        try {
+            Class<?> adapter = Class.forName("mtopsdk.mtop.network.NetworkCallbackAdapter", false, loader);
+            XposedBridge.hookAllMethods(adapter, "doFinish", new XC_MethodHook() {
+                @Override protected void beforeHookedMethod(MethodHookParam param) {
+                    try {
+                        if (param.args == null || param.args.length == 0 || param.args[0] == null) return;
+                        Object resp = param.args[0];
+                        Object apiObj = resp.getClass().getMethod("getApi").invoke(resp);
+                        if (!(apiObj instanceof String)) return;
+                        String api = (String) apiObj;
+                        if (!TARGETS.contains(api) || !reserveResponse()) return;
+                        int status = 0;
+                        Object codeObj = resp.getClass().getMethod("getResponseCode").invoke(resp);
+                        if (codeObj instanceof Number) status = ((Number) codeObj).intValue();
+                        Object retObj = resp.getClass().getMethod("getRetCode").invoke(resp);
+                        String retCat = sanitizeRet(retObj instanceof String ? (String) retObj : null);
+                        JSONObject rec = new JSONObject();
+                        rec.put("record_type", "mtop_response");
+                        rec.put("api", api);
+                        rec.put("http_status", status);
+                        rec.put("ret_category", retCat);
+                        rec.put("thread_id", Thread.currentThread().getId());
+                        rec.put("ts_nanos", System.nanoTime());
+                        writer.execute(() -> save(rec));
+                    } catch (Throwable ignored) {}
+                }
+            });
+        } catch (Throwable unavailable) {
+            XposedBridge.log("AliLoginCompat: mtop response observer unavailable: " + unavailable.getClass().getName());
+        }
+    }
+
+    private static String sanitizeRet(String ret) {
+        if (ret == null || ret.isEmpty()) return "UNKNOWN";
+        if (ret.equals("SUCCESS")) return "SUCCESS";
+        if (ret.startsWith("FAIL_SYS_") || ret.startsWith("ERR_") || ret.startsWith("FAIL_")) {
+            return ret.length() <= 48 ? ret : ret.substring(0, 48);
+        }
+        return "OTHER";
     }
 
     private static String sha256(String value) throws Exception {

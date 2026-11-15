@@ -80,7 +80,8 @@ final class DenyPageBubble {
                 if (!(target.equals("com.alibaba.wireless.security.open.middletier.fc.ui.ContainerActivity")
                         || target.equals("com.alibaba.wireless.security.open.middletier.fc.ui.ExtContainerActivity")
                         || target.equals("com.alibaba.wireless.security.open.middletier.fc.ui.Ext2ContainerActivity"))) return;
-                if (!DenyLocationPolicy.shouldReplace(intent.getStringExtra("location"))) return;
+                String loc = intent.getStringExtra("location");
+                if (!DenyLocationPolicy.shouldReplace(loc)) return;
                 long session = intent.getLongExtra("sessionId", 0L);
                 if (session == 0) return;
                 try {
@@ -96,7 +97,11 @@ final class DenyPageBubble {
                     param.setResult(null);
                     notifyDeny();
                     int count = folded.incrementAndGet();
-                    if (count <= 8 || count % 100 == 0) XposedBridge.log("AliLoginCompat: SDK deny launch folded count=" + count + "; original CANCEL callback delivered");
+                    if (count <= 8 || count % 100 == 0) {
+                        String ref = null;
+                        try { ref = android.net.Uri.parse(loc).getQueryParameter("httpReferer"); } catch (Throwable ignored) {}
+                        XposedBridge.log("AliLoginCompat: SDK deny launch folded count=" + count + " ref=" + ref + "; original CANCEL callback delivered");
+                    }
                     if (count == 1) {
                         StringBuilder trace = new StringBuilder("AliLoginCompat: SDK deny launch stack");
                         StackTraceElement[] stack = new Throwable().getStackTrace();

@@ -1,4 +1,5 @@
 #include "../app/src/main/cpp/policy.hpp"
+#include "../app/src/main/cpp/taobao_env_compat.hpp"
 #include <cassert>
 
 int main() {
@@ -30,5 +31,19 @@ int main() {
     auto taobao_second = taobao; taobao_second[0] = 0x10;
     assert(ali::matches(taobao_second.data(), 18, ali::Format::Taobao));
     assert(ali::rewrite(taobao_second.data())[0] == 0x10);
+    assert(ali::env::classify_proc_file("/proc/self/mountinfo") == ali::env::ProcKind::Mount);
+    assert(ali::env::classify_proc_file("/proc/1234/mounts") == ali::env::ProcKind::Mount);
+    assert(ali::env::classify_proc_file("/proc/self/maps") == ali::env::ProcKind::Maps);
+    assert(ali::env::classify_proc_file("/proc/self/status") == ali::env::ProcKind::None);
+    assert(ali::env::is_suspicious_path("/data/adb/magisk"));
+    assert(ali::env::is_suspicious_path("/system/xbin/su"));
+    assert(!ali::env::is_suspicious_path("/system/lib64/libc.so"));
+    const std::string sample_mount =
+        "1 2 0:1 / / ro,relatime - ext4 /dev/root ro\n"
+        "3 4 254:73 /adb/magicap/trust/cacerts /apex/com.android.conscrypt/cacerts rw - f2fs /dev/block/dm-73 rw\n"
+        "5 6 0:2 / /data rw - f2fs /dev/block/sda1 rw\n";
+    assert(ali::env::filter_proc_content(sample_mount, ali::env::ProcKind::Mount) ==
+           "1 2 0:1 / / ro,relatime - ext4 /dev/root ro\n"
+           "5 6 0:2 / /data rw - f2fs /dev/block/sda1 rw\n");
     return 0;
 }

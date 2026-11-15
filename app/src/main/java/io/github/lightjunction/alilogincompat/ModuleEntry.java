@@ -17,7 +17,7 @@ public final class ModuleEntry implements IXposedHookLoadPackage, IXposedHookZyg
     private static final String ID = "io.github.lightjunction.alilogincompat";
     private static String modulePath;
     @Override public void initZygote(StartupParam startup) { modulePath = startup.modulePath; }
-    private static native void configureNative(boolean rewrite, String packageName, boolean probe);
+    private static native void configureNative(boolean rewrite, String packageName, boolean probe, boolean envCompat, boolean envTrace, boolean traceBusiness);
     private static native long[] nativeCounters();
     private static native String nativeRecords();
 
@@ -33,21 +33,27 @@ public final class ModuleEntry implements IXposedHookLoadPackage, IXposedHookZyg
                     : prefs.getBoolean("rewrite", false));
             boolean probe = configured && prefs.getBoolean("probe", false);
             boolean trace = configured && load.packageName.equals("com.taobao.taobao") && prefs.getBoolean("trace_business", false);
+            boolean envCompat = configured && load.packageName.equals("com.taobao.taobao") && prefs.getBoolean("env_compat", false);
+            boolean envTrace = configured && load.packageName.equals("com.taobao.taobao") && prefs.getBoolean("env_trace", false);
             if (load.packageName.equals("com.taobao.taobao") && prefs.getBoolean("deny_bubble", true)) {
                 try { DenyPageBubble.install(load.classLoader, modulePath, prefs.getLong("deny_bubble_epoch", 0L)); }
                 catch (Throwable unavailable) { XposedBridge.log("AliLoginCompat: deny bubble hook unavailable: " + unavailable.getClass().getName()); }
             }
-            if (!rewrite && !probe && !trace) {
+            if (!rewrite && !probe && !trace && !envCompat && !envTrace) {
                 XposedBridge.log("AliLoginCompat: loaded package=" + load.packageName + " mode=ui-only native_hooks=skipped configured=" + configured + " probe=false");
                 return;
             }
             System.loadLibrary("alilogincompat");
-            configureNative(rewrite, load.packageName, probe);
+            configureNative(rewrite, load.packageName, probe, envCompat, envTrace, trace);
+            if (load.packageName.equals("com.taobao.taobao") && (envCompat || envTrace)) {
+                try { TaobaoEnvCompat.install(load.classLoader, envCompat, envTrace); }
+                catch (Throwable unavailable) { XposedBridge.log("AliLoginCompat: taobao env compat unavailable: " + unavailable.getClass().getName()); }
+            }
             if (trace) {
                 try { BusinessFactorTrace.install(load.classLoader); }
                 catch (Throwable unavailable) { XposedBridge.log("AliLoginCompat: business trace hook unavailable: " + unavailable.getClass().getName()); }
             }
-            XposedBridge.log("AliLoginCompat: loaded package=" + load.packageName + " mode=" + (rewrite ? "rewrite" : "observe") + " configured=" + configured + " probe=" + probe);
+            XposedBridge.log("AliLoginCompat: loaded package=" + load.packageName + " mode=" + (rewrite ? "rewrite" : "observe") + " configured=" + configured + " probe=" + probe + " env_compat=" + envCompat + " env_trace=" + envTrace);
             installProbe(load.classLoader, rewrite, probe);
         } catch (Throwable error) {
             XposedBridge.log("AliLoginCompat: initialization failed; original behavior retained: " + error.getClass().getName());

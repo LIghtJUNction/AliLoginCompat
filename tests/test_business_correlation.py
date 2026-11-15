@@ -42,6 +42,44 @@ class CorrelationTests(unittest.TestCase):
         self.assertEqual(result["candidate_count"], 2)
         self.assertEqual(result["matches"][1]["different_or_missing_fields"], ["x-mini-wua"])
 
+    def test_eight_fields_and_first_divergence_diff(self):
+        diff_path = Path(__file__).resolve().parents[1] / "scripts/diff-business-traces.py"
+        diff_spec = importlib.util.spec_from_file_location("diff_traces", diff_path)
+        diff_mod = importlib.util.module_from_spec(diff_spec)
+        diff_spec.loader.exec_module(diff_mod)
+
+        ok_trace = {
+            "api": "mtop.relationrecommend.wirelessrecommend.recommend",
+            "output_fields": {
+                "x-sign": {"present": True, "length": 10, "sha256": "aaa"},
+                "x-gst": {"present": False, "length": 0},
+            },
+            "native": {
+                "append_calls": 2,
+                "records": [{"caller_offset": 100, "source_length": 16}, {"caller_offset": 200, "source_length": 32}],
+                "events": [{"caller_offset": 50, "kind": "sg_prop", "target": "ro.product.model", "ret": 6}],
+            },
+        }
+        fail_trace = {
+            "api": "mtop.trade.query.bag",
+            "output_fields": {
+                "x-sign": {"present": True, "length": 10, "sha256": "bbb"},
+                "x-gst": {"present": True, "length": 24, "sha256": "ccc"},
+            },
+            "native": {
+                "append_calls": 2,
+                "records": [{"caller_offset": 100, "source_length": 16}, {"caller_offset": 300, "source_length": 18}],
+                "events": [
+                    {"caller_offset": 50, "kind": "sg_prop", "target": "ro.product.model", "ret": 6},
+                    {"caller_offset": 60, "kind": "sg_open", "target": "/proc/self/maps", "ret": 0},
+                ],
+            },
+        }
+        report = diff_mod.diff_traces(ok_trace, fail_trace)
+        self.assertIn("x-gst", report["field_diffs"])
+        self.assertEqual(report["first_append_divergence"]["index"], 1)
+        self.assertEqual(report["first_event_divergence"]["index"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()
