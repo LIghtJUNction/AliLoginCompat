@@ -1,6 +1,7 @@
 #include "native_api.hpp"
 #include "policy.hpp"
 #include "taobao_env_compat.hpp"
+#include "native_query_compat.hpp"
 #include "trace_capture.hpp"
 extern "C" {
 #include "third_party/sha256.h"
@@ -391,24 +392,19 @@ static const void* sg_prop_find_hook(const char* name) {
 
 long sg_syscall_hook(long sysno, long a0, long a1, long a2, long a3, long a4, long a5);
 
-static void sg_prop_read_hook(const void* pi, char* name, char* value) {
-    static auto orig_read = reinterpret_cast<void (*)(const void*, char*, char*)>(
+static int sg_prop_read_hook(const prop_info* pi, char* name, char* value) {
+    const int entry_errno = errno;
+    static auto orig_read = reinterpret_cast<ali::native_query::PropertyRead>(
         orig_sg_dlsym(RTLD_DEFAULT, "__system_property_read"));
-    if (!orig_read) return;
-    orig_read(pi, name, value);
-    if (name && value) {
-        if (env_compat.load(std::memory_order_relaxed)) {
-            if (std::strcmp(name, "ro.debuggable") == 0 ||
-                std::strcmp(name, "service.adb.root") == 0) {
-                std::strcpy(value, "0");
-            } else if (std::strcmp(name, "ro.secure") == 0) {
-                std::strcpy(value, "1");
-            }
-        }
-        std::string kv = std::string(name) + "=" + value;
-        log_syscall_once("sg_prop_read", 0, kv.c_str(), 0);
-        record_capture_event("sg_prop_read", __builtin_extract_return_addr(__builtin_return_address(0)), name, 0);
-    }
+    errno = entry_errno;
+    const void* caller = __builtin_extract_return_addr(__builtin_return_address(0));
+    return ali::native_query::read_property(
+        orig_read, pi, name, value, env_compat.load(std::memory_order_relaxed),
+        [caller](const char* property_name, const char* property_value) {
+            std::string kv = std::string(property_name) + "=" + property_value;
+            log_syscall_once("sg_prop_read", 0, kv.c_str(), 0);
+            record_capture_event("sg_prop_read", caller, property_name, 0);
+        });
 }
 
 static char* sg_if_indextoname_hook(unsigned int ifindex, char* ifname) {
@@ -430,24 +426,13 @@ static char* sg_if_indextoname_hook(unsigned int ifindex, char* ifname) {
 }
 
 static ssize_t sg_recvmsg_hook(int sockfd, struct msghdr* msg, int flags) {
-    static auto orig_fn = reinterpret_cast<ssize_t (*)(int, struct msghdr*, int)>(
+    const int entry_errno = errno;
+    static auto orig_fn = reinterpret_cast<ali::native_query::Recvmsg>(
         orig_sg_dlsym(RTLD_DEFAULT, "recvmsg"));
-    if (!orig_fn) return -1;
-    ssize_t ret = orig_fn(sockfd, msg, flags);
-    if (env_compat.load(std::memory_order_relaxed) && ret > 0 && msg && msg->msg_iov) {
-        for (size_t i = 0; i < static_cast<size_t>(msg->msg_iovlen); ++i) {
-            auto* base = static_cast<char*>(msg->msg_iov[i].iov_base);
-            size_t len = msg->msg_iov[i].iov_len;
-            if (!base || len < 10) continue;
-            for (size_t j = 0; j + 9 <= len; ++j) {
-                if (std::memcmp(base + j, "magicnet0", 9) == 0) {
-                    std::memcpy(base + j, "rmnet_da0", 9);
-                    log_syscall_once("sg_nl_hide", 0, "magicnet0", 1);
-                }
-            }
-        }
-    }
-    return ret;
+    errno = entry_errno;
+    // Network payloads and unused iovec capacity belong to the caller.
+    // Do not scan, rename interfaces in, or otherwise rewrite received bytes.
+    return ali::native_query::receive_message(orig_fn, sockfd, msg, flags);
 }
 
 void* sg_dlsym_hook(void* handle, const char* symbol) {
