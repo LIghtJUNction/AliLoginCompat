@@ -38,6 +38,8 @@ public final class MainActivity extends Activity {
         toggle(layout, preferences, "probe", R.string.probe, false);
         toggle(layout, preferences, "trace_business", R.string.trace_business, false);
         text(layout, R.string.trace_business_note, 14);
+        toggle(layout, preferences, "trace_status", R.string.trace_status, false);
+        text(layout, R.string.trace_status_note, 14);
         toggle(layout, preferences, "env_trace", R.string.env_trace, false);
         toggle(layout, preferences, "env_compat", R.string.env_compat, false);
         text(layout, R.string.env_switches_note, 14);

@@ -22,4 +22,6 @@
     <string name="env_trace">Observe Taobao environment checks (trace_env)</string>
     <string name="env_compat">Enable Taobao environment compatibility layer (experimental)</string>
     <string name="env_switches_note">Both environment switches are off by default and independent of candidate-byte rewriting. trace_env only logs accessed properties, paths, interfaces, and syscalls without changing return values.</string>
+    <string name="trace_status">Observe Taobao request status only</string>
+    <string name="trace_status_note">Off by default. Logs only validated API names, HTTP/MTOP status codes, monotonic time, and temporary response numbers. No headers, bodies, credentials, or native hooks. Turn off and restart Taobao after diagnostics.</string>
 </resources>

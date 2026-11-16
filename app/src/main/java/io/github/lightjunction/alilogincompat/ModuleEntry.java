@@ -33,14 +33,19 @@ public final class ModuleEntry implements IXposedHookLoadPackage, IXposedHookZyg
                     : prefs.getBoolean("rewrite", false));
             boolean probe = configured && prefs.getBoolean("probe", false);
             boolean trace = configured && load.packageName.equals("com.taobao.taobao") && prefs.getBoolean("trace_business", false);
+            boolean statusTrace = configured && load.packageName.equals("com.taobao.taobao") && prefs.getBoolean("trace_status", false);
             boolean envCompat = configured && load.packageName.equals("com.taobao.taobao") && prefs.getBoolean("env_compat", false);
             boolean envTrace = configured && load.packageName.equals("com.taobao.taobao") && prefs.getBoolean("env_trace", false);
+            if (statusTrace) {
+                try { MtopStatusTrace.install(load.classLoader); }
+                catch (Throwable unavailable) { XposedBridge.log("AliLoginCompat: status trace unavailable; original behavior retained"); }
+            }
             if (load.packageName.equals("com.taobao.taobao") && prefs.getBoolean("deny_bubble", true)) {
                 try { DenyPageBubble.install(load.classLoader, modulePath, prefs.getLong("deny_bubble_epoch", 0L)); }
                 catch (Throwable unavailable) { XposedBridge.log("AliLoginCompat: deny bubble hook unavailable: " + unavailable.getClass().getName()); }
             }
             if (!rewrite && !probe && !trace && !envCompat && !envTrace) {
-                XposedBridge.log("AliLoginCompat: loaded package=" + load.packageName + " mode=ui-only native_hooks=skipped configured=" + configured + " probe=false");
+                XposedBridge.log("AliLoginCompat: loaded package=" + load.packageName + " mode=ui-only native_hooks=skipped configured=" + configured + " probe=false status_trace=" + statusTrace);
                 return;
             }
             System.loadLibrary("alilogincompat");

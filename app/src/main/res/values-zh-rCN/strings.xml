@@ -21,4 +21,6 @@
     <string name="env_trace">仅观测淘宝环境探测（trace_env，不改返回值）</string>
     <string name="env_compat">启用淘宝环境兼容层（env_compat，实验性）</string>
     <string name="env_switches_note">上述两个环境开关默认关闭，且与候选字节改写完全独立。trace_env 仅记录访问的属性、路径、网卡与系统调用，不修改任何返回值。</string>
+    <string name="trace_status">仅记录淘宝请求状态码</string>
+    <string name="trace_status_note">默认关闭。仅记录校验后的 API 名、HTTP/MTOP 状态码、单调时间和临时响应编号；不记录请求头、正文或凭证，不启用原生钩子。诊断后关闭并重启淘宝。</string>
 </resources>
