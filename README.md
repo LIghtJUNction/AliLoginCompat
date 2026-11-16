@@ -58,6 +58,23 @@
 
 该文件可能包含设备指纹材料；不要上传到 Issue。诊断结束后关闭开关并删除该文件。公开反馈只需要应用 / 安全库版本、是否匹配、计数和脱敏后的结果。
 
+### 请求状态观察（alpha.9）
+
+设置中的“仅记录淘宝请求状态码”（`trace_status`）默认关闭，仅观察淘宝主进程已有响应。它在 `tb.ev8.c(tb.w4j)` 的入口和应用读取 `MtopResponse.getRetCode()` 后记录状态，不创建网络请求，不调用登录或安全参数生成方法，也不修改原方法的返回值或异常。
+
+这一开关与原生实验功能独立。仅打开它、并保持淘宝改写、probe、trace_business、env_trace、env_compat 关闭时，日志应同时出现：
+
+```text
+status trace ready filter_entry=true limit=128 native=false
+loaded package=com.taobao.taobao mode=ui-only native_hooks=skipped ... status_trace=true
+```
+
+每条记录只包含阶段、单调时间、进程内临时响应编号、校验后的 API 名、HTTP 状态和规范化 MTOP 错误码。同一响应可用编号关联两个阶段；重复状态去重，每进程最多 128 条。它不记录 URL、查询参数、请求头、正文、错误文案、签名或凭证。
+
+`filter_entry` 时的错误码可能尚未填入，此时记录 `UNAVAILABLE`，不能据此认定请求成功。`filter_entry=false` 表示内部过滤器未匹配；已达到记录上限或没有新事件，也不能视为业务恢复。诊断结束后关闭开关并重新打开淘宝。
+
+2026-11-17 真机确认 alpha.9 的过滤器和 getter 观测均命中，原生钩子保持跳过。购物车接口 `mtop.trade.query.bag` 仍返回 HTTP 419，并出现 `ANDROID_SYS_API_41X_ANTI_ATTACK`；另有首页请求记录到 `FAIL_SYS_USER_VALIDATE`。这是新的诊断能力，尚未恢复被拒绝的淘宝业务。
+
 ## 本地构建和验证
 
 需要 JDK 21、Android SDK 36、NDK `27.1.12297006`、CMake `3.22.1`。在 `local.properties` 设置 `sdk.dir`，或设置 Android SDK 环境变量。
@@ -68,6 +85,8 @@ g++ -std=c++17 -Wall -Wextra -Werror tests/policy_test.cpp -o /tmp/alilogincompa
 /tmp/alilogincompat-policy-test
 javac -d /tmp/alilogincompat-ui-tests app/src/main/java/io/github/lightjunction/alilogincompat/DenyLocationPolicy.java tests/DenyLocationPolicyTest.java
 java -cp /tmp/alilogincompat-ui-tests io.github.lightjunction.alilogincompat.DenyLocationPolicyTest
+javac -d /tmp/alilogincompat-status-tests app/src/main/java/io/github/lightjunction/alilogincompat/MtopStatusPolicy.java tests/MtopStatusPolicyTest.java
+java -cp /tmp/alilogincompat-status-tests io.github.lightjunction.alilogincompat.MtopStatusPolicyTest
 ```
 
 Release 构建产生未签名 APK，请用自己的密钥签名。签名密钥、密码、构建产物和诊断样本均不应提交。日常验证在本地完成，本仓库不配置自动 CI。
