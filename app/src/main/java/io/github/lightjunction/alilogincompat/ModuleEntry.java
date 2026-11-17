@@ -36,6 +36,7 @@ public final class ModuleEntry implements IXposedHookLoadPackage, IXposedHookZyg
             boolean statusTrace = configured && load.packageName.equals("com.taobao.taobao") && prefs.getBoolean("trace_status", false);
             boolean envCompat = configured && load.packageName.equals("com.taobao.taobao") && prefs.getBoolean("env_compat", false);
             boolean envTrace = configured && load.packageName.equals("com.taobao.taobao") && prefs.getBoolean("env_trace", false);
+            boolean usbCompat = configured && load.packageName.equals("com.taobao.taobao") && prefs.getBoolean("usb_compat", false);
             if (statusTrace) {
                 try { MtopStatusTrace.install(load.classLoader); }
                 catch (Throwable unavailable) { XposedBridge.log("AliLoginCompat: status trace unavailable; original behavior retained"); }
@@ -44,8 +45,12 @@ public final class ModuleEntry implements IXposedHookLoadPackage, IXposedHookZyg
                 try { DenyPageBubble.install(load.classLoader, modulePath, prefs.getLong("deny_bubble_epoch", 0L)); }
                 catch (Throwable unavailable) { XposedBridge.log("AliLoginCompat: deny bubble hook unavailable: " + unavailable.getClass().getName()); }
             }
+            if (usbCompat) {
+                try { TaobaoUsbCompat.install(load.classLoader, true); }
+                catch (Throwable unavailable) { XposedBridge.log("AliLoginCompat: USB compat unavailable: " + unavailable.getClass().getName()); }
+            }
             if (!rewrite && !probe && !trace && !envCompat && !envTrace) {
-                XposedBridge.log("AliLoginCompat: loaded package=" + load.packageName + " mode=ui-only native_hooks=skipped configured=" + configured + " probe=false status_trace=" + statusTrace);
+                XposedBridge.log("AliLoginCompat: loaded package=" + load.packageName + " mode=ui-only native_hooks=skipped configured=" + configured + " probe=false status_trace=" + statusTrace + " usb_compat=" + usbCompat);
                 return;
             }
             System.loadLibrary("alilogincompat");

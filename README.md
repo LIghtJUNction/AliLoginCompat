@@ -75,6 +75,12 @@ loaded package=com.taobao.taobao mode=ui-only native_hooks=skipped ... status_tr
 
 2026-11-17 真机确认 alpha.9 的过滤器和 getter 观测均命中，原生钩子保持跳过。购物车接口 `mtop.trade.query.bag` 仍返回 HTTP 419，并出现 `ANDROID_SYS_API_41X_ANTI_ATTACK`；另有首页请求记录到 `FAIL_SYS_USER_VALIDATE`。这是新的诊断能力，尚未恢复被拒绝的淘宝业务。
 
+### USB 状态兼容实验（alpha.16）
+
+`usb_compat` 默认关闭。开启后仅将淘宝内 `USB_STATE` 广播副本的 `connected` 改为 `false`，使 `SecurityBodyAdapter.doAdapter(10)` 返回 `"0"`；其他广播字段、电池状态和原生钩子均不因此改变。参考实现为 [DuckDroid2 的同版本环境](https://github.com/djskncxm/DuckDroid2/blob/8fd6f73176957a5493cbff4c420a4d8166bbd959/code/user_code/taobao_case/taobao_env.cpp)。
+
+真机已确认原始 `connected=true`、修改后 `doAdapter(10)=0`，但同一购物车请求仍返回 HTTP 419，因此该开关不是已验证的修复。离线 purpose=8 对照使用相同初始状态、时间和随机种子，同设置复跑的 18 字节状态完全一致；USB 切换只稳定改变第 5 字节的 `0x01` 位及第 8/9 字节的派生校验。`adb_enabled` 对照的 18 字节状态没有差异。这些结果说明字段进入安全输出与服务器接受请求是不同问题，不能据此推断服务端规则。
+
 ## 本地构建和验证
 
 需要 JDK 21、Android SDK 36、NDK `27.1.12297006`、CMake `3.22.1`。在 `local.properties` 设置 `sdk.dir`，或设置 Android SDK 环境变量。
@@ -87,6 +93,8 @@ javac -d /tmp/alilogincompat-ui-tests app/src/main/java/io/github/lightjunction/
 java -cp /tmp/alilogincompat-ui-tests io.github.lightjunction.alilogincompat.DenyLocationPolicyTest
 javac -d /tmp/alilogincompat-status-tests app/src/main/java/io/github/lightjunction/alilogincompat/MtopStatusPolicy.java tests/MtopStatusPolicyTest.java
 java -cp /tmp/alilogincompat-status-tests io.github.lightjunction.alilogincompat.MtopStatusPolicyTest
+javac -d /tmp/alilogincompat-usb-tests app/src/main/java/io/github/lightjunction/alilogincompat/UsbCompatPolicy.java tests/UsbCompatPolicyTest.java
+java -cp /tmp/alilogincompat-usb-tests io.github.lightjunction.alilogincompat.UsbCompatPolicyTest
 ```
 
 Release 构建产生未签名 APK，请用自己的密钥签名。签名密钥、密码、构建产物和诊断样本均不应提交。日常验证在本地完成，本仓库不配置自动 CI。

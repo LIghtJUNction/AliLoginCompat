@@ -40,6 +40,8 @@ public final class MainActivity extends Activity {
         text(layout, R.string.trace_business_note, 14);
         toggle(layout, preferences, "trace_status", R.string.trace_status, false);
         text(layout, R.string.trace_status_note, 14);
+        toggle(layout, preferences, "usb_compat", R.string.usb_compat, false);
+        text(layout, R.string.usb_compat_note, 14);
         toggle(layout, preferences, "env_trace", R.string.env_trace, false);
         toggle(layout, preferences, "env_compat", R.string.env_compat, false);
         text(layout, R.string.env_switches_note, 14);
