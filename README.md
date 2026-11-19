@@ -81,6 +81,10 @@ loaded package=com.taobao.taobao mode=ui-only native_hooks=skipped ... status_tr
 
 真机已确认原始 `connected=true`、修改后 `doAdapter(10)=0`，但同一购物车请求仍返回 HTTP 419，因此该开关不是已验证的修复。离线 purpose=8 对照使用相同初始状态、时间和随机种子，同设置复跑的 18 字节状态完全一致；USB 切换只稳定改变第 5 字节的 `0x01` 位及第 8/9 字节的派生校验。`adb_enabled` 对照的 18 字节状态没有差异。这些结果说明字段进入安全输出与服务器接受请求是不同问题，不能据此推断服务端规则。
 
+### 会话与兼容修复（alpha.17）
+
+alpha.17（versionCode 20）已在开发设备升级安装，修复拒绝页完整 `httpReferer` 日志、USB 广播 action 判断，以及原生查询的 errno、完整内容回退和描述符关闭。宿主测试、Release 构建、打包 JNI 导出和 APK 签名验证通过。本轮淘宝首页有 HTTP 200 / SUCCESS，IM 返回 FAIL_SYS_SESSION_EXPIRED；官方登录尚未完成，购物车仍进入登录页，随后仍可出现拒绝页。当前尚未恢复淘宝业务，下一步需本人完成官方认证后复测购物车、搜索和详情。详见[2026-11-20 会话验证记录](docs/taobao-session-recovery-2026-11-20.md)，此前 HTTP 419 对照继续保留。
+
 ## 本地构建和验证
 
 需要 JDK 21、Android SDK 36、NDK `27.1.12297006`、CMake `3.22.1`。在 `local.properties` 设置 `sdk.dir`，或设置 Android SDK 环境变量。
