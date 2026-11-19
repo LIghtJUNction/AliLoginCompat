@@ -98,9 +98,7 @@ final class DenyPageBubble {
                     notifyDeny();
                     int count = folded.incrementAndGet();
                     if (count <= 8 || count % 100 == 0) {
-                        String ref = null;
-                        try { ref = android.net.Uri.parse(loc).getQueryParameter("httpReferer"); } catch (Throwable ignored) {}
-                        XposedBridge.log("AliLoginCompat: SDK deny launch folded count=" + count + " ref=" + ref + "; original CANCEL callback delivered");
+                        XposedBridge.log("AliLoginCompat: SDK deny launch folded count=" + count + "; original CANCEL callback delivered");
                     }
                     if (count == 1) {
                         StringBuilder trace = new StringBuilder("AliLoginCompat: SDK deny launch stack");

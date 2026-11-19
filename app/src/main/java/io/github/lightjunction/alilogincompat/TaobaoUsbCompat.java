@@ -27,11 +27,9 @@ final class TaobaoUsbCompat {
                         break;
                     }
                 }
-                if (filter == null || !UsbCompatPolicy.shouldReplace(
-                        "android.hardware.usb.action.USB_STATE", compat)
-                        || !filter.hasAction("android.hardware.usb.action.USB_STATE")) return;
+                if (filter == null || !filter.hasAction("android.hardware.usb.action.USB_STATE")) return;
                 Intent original = (Intent) param.getResult();
-                if (original == null) return;
+                if (original == null || !UsbCompatPolicy.shouldReplace(original.getAction(), compat)) return;
                 boolean connected = original.getBooleanExtra("connected", false);
                 int sequence = LOGGED.incrementAndGet();
                 if (sequence <= 16) {
