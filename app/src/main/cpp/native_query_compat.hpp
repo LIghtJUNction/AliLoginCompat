@@ -13,6 +13,15 @@ struct prop_info;
 
 namespace ali::native_query {
 
+class ErrnoGuard {
+    int saved_ = errno;
+public:
+    ErrnoGuard() = default;
+    ErrnoGuard(const ErrnoGuard&) = delete;
+    ErrnoGuard& operator=(const ErrnoGuard&) = delete;
+    ~ErrnoGuard() { errno = saved_; }
+};
+
 using PropertyRead = int (*)(const prop_info*, char*, char*);
 using Recvmsg = ssize_t (*)(int, struct msghdr*, int);
 
@@ -33,7 +42,7 @@ int read_property(PropertyRead original, const prop_info* property, char* name, 
         return -1;
     }
     int result = original(property, name, value);
-    const int original_errno = errno;
+    const ErrnoGuard preserve_errno;
     if (result >= 0 && name && value) {
         bool replaced = false;
         if (compat) {
@@ -49,8 +58,6 @@ int read_property(PropertyRead original, const prop_info* property, char* name, 
         if (replaced) result = static_cast<int>(std::strlen(value));
         observer(name, value);
     }
-    // Logging can alter errno; expose only the original reader's errno.
-    errno = original_errno;
     return result;
 }
 

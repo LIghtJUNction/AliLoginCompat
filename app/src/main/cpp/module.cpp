@@ -2,6 +2,7 @@
 #include "policy.hpp"
 #include "taobao_env_compat.hpp"
 #include "native_query_compat.hpp"
+#include "native_file_compat.hpp"
 #include "trace_capture.hpp"
 extern "C" {
 #include "third_party/sha256.h"
@@ -99,6 +100,7 @@ std::string file_hash(const char* path) {
 
 void append_hook(void* destination, const void* source, std::int32_t length) {
     if (business_capture.active()) {
+        const ali::native_query::ErrnoGuard preserve_errno;
         const auto caller = reinterpret_cast<std::uintptr_t>(
             __builtin_extract_return_addr(__builtin_return_address(0)));
         const auto base = library_base.load(std::memory_order_relaxed);
@@ -108,6 +110,7 @@ void append_hook(void* destination, const void* source, std::int32_t length) {
     append_calls.fetch_add(1);
     if (diagnostics.load() && source && length >= 12 && length <= 64 &&
         (length == 18 || static_cast<const unsigned char*>(source)[0] == 0x11)) {
+        const ali::native_query::ErrnoGuard preserve_errno;
         std::lock_guard<std::mutex> lock(records_mutex);
         if (records.size() < 32) {
             const auto* bytes = static_cast<const unsigned char*>(source);
@@ -126,7 +129,12 @@ void append_hook(void* destination, const void* source, std::int32_t length) {
     } else {
         original_append(destination, source, length);
     }
-    if (count <= 8) __android_log_print(ANDROID_LOG_INFO, TAG, "state record matched=%llu rewritten=%llu", static_cast<unsigned long long>(count), static_cast<unsigned long long>(rewritten.load()));
+    if (count <= 8) {
+        const ali::native_query::ErrnoGuard preserve_errno;
+        __android_log_print(ANDROID_LOG_INFO, TAG, "state record matched=%llu rewritten=%llu",
+                            static_cast<unsigned long long>(count),
+                            static_cast<unsigned long long>(rewritten.load()));
+    }
 }
 
 std::mutex syscall_log_mutex;
@@ -140,11 +148,13 @@ std::uintptr_t caller_lib_offset(const void* return_addr) {
 }
 
 void record_capture_event(const char* kind, const void* return_addr, const char* target, long ret) {
+    const ali::native_query::ErrnoGuard preserve_errno;
     if (!business_capture.active()) return;
     business_capture.record_event(kind, caller_lib_offset(return_addr), target, ret);
 }
 
 void log_syscall_once(const char* kind, long sysno, const char* path, long ret) {
+    const ali::native_query::ErrnoGuard preserve_errno;
     if (!env_trace.load(std::memory_order_relaxed) || !path) return;
     if (std::strncmp(path, "/data/user/0/com.taobao.taobao/", 31) == 0 ||
         std::strncmp(path, "/data/data/com.taobao.taobao/", 29) == 0) {
@@ -159,32 +169,13 @@ void log_syscall_once(const char* kind, long sysno, const char* path, long ret) 
 }
 
 int filter_proc_fd(int real_fd, const char* pathname, ali::env::ProcKind kind) {
-    if (real_fd < 0) return real_fd;
-    std::string raw;
-    char buf[4096];
-    ssize_t n = 0;
-    while ((n = read(real_fd, buf, sizeof(buf))) > 0) {
-        raw.append(buf, static_cast<std::size_t>(n));
-        if (raw.size() >= 4 * 1024 * 1024) break;
+    std::size_t filtered_size = 0;
+    const int filtered = ali::native_file::filter_proc_fd(
+        real_fd, kind, ali::native_file::create_proc_buffer, &filtered_size);
+    if (filtered >= 0) {
+        log_syscall_once("filter_proc", 56, pathname, static_cast<long>(filtered_size));
     }
-    close(real_fd);
-    std::string filtered = ali::env::filter_proc_content(raw, kind);
-#ifndef __NR_memfd_create
-#define __NR_memfd_create 279
-#endif
-    int mfd = static_cast<int>(syscall(__NR_memfd_create, "proc", 1 /* MFD_CLOEXEC */));
-    if (mfd >= 0) {
-        std::size_t off = 0;
-        while (off < filtered.size()) {
-            ssize_t w = write(mfd, filtered.data() + off, filtered.size() - off);
-            if (w <= 0) break;
-            off += static_cast<std::size_t>(w);
-        }
-        lseek(mfd, 0, SEEK_SET);
-        log_syscall_once("filter_proc", 56, pathname, static_cast<long>(filtered.size()));
-        return mfd;
-    }
-    return -1;
+    return filtered;
 }
 
 long syscall_hook(long a0, long a1, long a2, long a3, long a4, long a5, long sysno) {
@@ -218,6 +209,7 @@ long syscall_hook(long a0, long a1, long a2, long a3, long a4, long a5, long sys
         log_syscall_once("syscall", sysno, pathname, ret);
         record_capture_event("syscall", __builtin_extract_return_addr(__builtin_return_address(0)), pathname, ret);
     } else {
+        const ali::native_query::ErrnoGuard preserve_errno;
         record_capture_event("syscall_num", __builtin_extract_return_addr(__builtin_return_address(0)), std::to_string(sysno).c_str(), ret);
     }
     return ret;
@@ -285,7 +277,10 @@ FILE* sg_fopen_hook(const char* path, const char* mode) {
             int fd = orig_sg_open(path, O_RDONLY, 0);
             if (fd >= 0) {
                 int mfd = filter_proc_fd(fd, path, kind);
-                if (mfd >= 0) return fdopen(mfd, mode ? mode : "r");
+                if (mfd >= 0) {
+                    FILE* stream = ali::native_file::fdopen_owned(mfd, mode ? mode : "r");
+                    if (stream) return stream;
+                }
             }
         }
     }
@@ -371,7 +366,9 @@ int sg_prop_get_hook(const char* name, char* value) {
 }
 
 static const void* sg_prop_find_hook(const char* name) {
+    const int entry_errno = errno;
     static auto orig_find = reinterpret_cast<const void* (*)(const char*)>(orig_sg_dlsym(RTLD_DEFAULT, "__system_property_find"));
+    errno = entry_errno;
     const bool compat = env_compat.load(std::memory_order_relaxed);
     if (name) {
         log_syscall_once("sg_prop_find", 0, name, 0);
@@ -408,8 +405,10 @@ static int sg_prop_read_hook(const prop_info* pi, char* name, char* value) {
 }
 
 static char* sg_if_indextoname_hook(unsigned int ifindex, char* ifname) {
+    const int entry_errno = errno;
     static auto orig_fn = reinterpret_cast<char* (*)(unsigned int, char*)>(
         orig_sg_dlsym(RTLD_DEFAULT, "if_indextoname"));
+    errno = entry_errno;
     if (!orig_fn) return nullptr;
     char* res = orig_fn(ifindex, ifname);
     if (res) {
@@ -487,6 +486,7 @@ long sg_syscall_hook(long sysno, long a0, long a1, long a2, long a3, long a4, lo
         log_syscall_once("sg_libc_sys", sysno, pathname, ret);
         record_capture_event("sg_libc_sys", __builtin_extract_return_addr(__builtin_return_address(0)), pathname, ret);
     } else {
+        const ali::native_query::ErrnoGuard preserve_errno;
         record_capture_event("sg_libc_sysno", __builtin_extract_return_addr(__builtin_return_address(0)), std::to_string(sysno).c_str(), ret);
     }
     return ret;

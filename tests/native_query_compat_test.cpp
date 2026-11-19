@@ -1,8 +1,10 @@
 #include "../app/src/main/cpp/native_query_compat.hpp"
+#include "../app/src/main/cpp/native_file_compat.hpp"
 
 #include <array>
 #include <cassert>
 #include <cstdio>
+#include <fcntl.h>
 #include <string>
 #include <unistd.h>
 
@@ -123,10 +125,118 @@ void receive_contract() {
     assert(close(sockets[0]) == 0);
     assert(close(sockets[1]) == 0);
 }
+
+int sample_fd(const std::string& contents) {
+    const int fd = ali::native_file::create_proc_buffer();
+    assert(fd >= 0);
+    assert(::write(fd, contents.data(), contents.size()) ==
+           static_cast<ssize_t>(contents.size()));
+    assert(::lseek(fd, 0, SEEK_SET) == 0);
+    return fd;
+}
+
+void assert_closed(int fd) {
+    assert(::fcntl(fd, F_GETFD) == -1);
+    assert(errno == EBADF);
+}
+
+void proc_copy_contract() {
+    // Create the destination first so it cannot reuse the consumed source fd.
+    const int output = ali::native_file::create_proc_buffer();
+    assert(output >= 0);
+    const int input = sample_fd("normal mapping\nmodule alilogincompat mapping\nlast mapping\n");
+    errno = ECHILD;
+    std::size_t filtered_size = 0;
+    assert(ali::native_file::filter_proc_fd(
+        input, ali::env::ProcKind::Maps, [output] { return output; },
+        &filtered_size) == output);
+    assert(errno == ECHILD);
+    assert_closed(input);
+    char buffer[128]{};
+    const ssize_t count = ::read(output, buffer, sizeof(buffer));
+    const std::string expected = "normal mapping\nlast mapping\n";
+    assert(count == static_cast<ssize_t>(expected.size()));
+    assert(filtered_size == expected.size());
+    assert(std::string(buffer, static_cast<std::size_t>(count)) == expected);
+    assert(::close(output) == 0);
+
+    // A real read error must not produce a successful empty replacement.
+    const int directory = ::open(".", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+    assert(directory >= 0);
+    bool created = false;
+    assert(ali::native_file::filter_proc_fd(
+        directory, ali::env::ProcKind::Maps, [&created] {
+            created = true;
+            return ali::native_file::create_proc_buffer();
+        }) == -1);
+    assert(errno == EISDIR);
+    assert(!created);
+    assert_closed(directory);
+
+    // Retaining only the first 4 MiB would silently change the proc file.
+    const int oversized = sample_fd(std::string(4 * 1024 * 1024 + 1, 'a'));
+    assert(ali::native_file::filter_proc_fd(
+        oversized, ali::env::ProcKind::Maps, [&created] {
+            created = true;
+            return ali::native_file::create_proc_buffer();
+        }) == -1);
+    assert(errno == EFBIG);
+    assert(!created);
+    assert_closed(oversized);
+
+    // Allocation failure consumes the source and preserves the actual error.
+    const int no_buffer_input = sample_fd("mapping\n");
+    assert(ali::native_file::filter_proc_fd(
+        no_buffer_input, ali::env::ProcKind::Maps, [] {
+            errno = EMFILE;
+            return -1;
+        }) == -1);
+    assert(errno == EMFILE);
+    assert_closed(no_buffer_input);
+
+    // /dev/full deterministically rejects writes with ENOSPC.
+    const int full = ::open("/dev/full", O_WRONLY | O_CLOEXEC);
+    assert(full >= 0);
+    const int write_input = sample_fd("mapping\n");
+    assert(ali::native_file::filter_proc_fd(
+        write_input, ali::env::ProcKind::Maps, [full] { return full; }) == -1);
+    assert(errno == ENOSPC);
+    assert_closed(write_input);
+    assert_closed(full);
+
+    // A replacement is usable only after a successful rewind.
+    int pipe_fds[2];
+    assert(::pipe(pipe_fds) == 0);
+    const int seek_input = sample_fd("mapping\n");
+    assert(ali::native_file::filter_proc_fd(
+        seek_input, ali::env::ProcKind::Maps,
+        [&pipe_fds] { return pipe_fds[1]; }) == -1);
+    assert(errno == ESPIPE);
+    assert_closed(seek_input);
+    assert_closed(pipe_fds[1]);
+    assert(::close(pipe_fds[0]) == 0);
+}
+
+void stream_ownership_contract() {
+    const int failed = sample_fd("mapping\n");
+    assert(ali::native_file::fdopen_owned(failed, "?") == nullptr);
+    assert(errno == EINVAL);
+    assert_closed(failed);
+
+    const int succeeded = sample_fd("mapping\n");
+    FILE* stream = ali::native_file::fdopen_owned(succeeded, "r");
+    assert(stream != nullptr);
+    assert(::fgetc(stream) == 'm');
+    assert(::fclose(stream) == 0);
+    assert_closed(succeeded);
+}
+
 }  // namespace
 
 int main() {
     property_contract();
     receive_contract();
-    std::puts("native query ABI and receive regression tests passed");
+    proc_copy_contract();
+    stream_ownership_contract();
+    std::puts("native query, receive, and file fallback regression tests passed");
 }
